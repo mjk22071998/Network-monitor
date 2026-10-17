@@ -1,0 +1,1473 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Observer — Cyber-Tactical LAN Operations Platform</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    :root {
+      --font-sans: 'Inter', -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+    
+    body {
+      font-family: var(--font-sans);
+      background-color: #050811;
+      color: #e2e8f0;
+    }
+    
+    .font-mono {
+      font-family: var(--font-mono);
+    }
+
+    /* Cyber grid lines */
+    .bg-tactical-grid {
+      background-size: 32px 32px;
+      background-image: 
+        linear-gradient(to right, rgba(0, 240, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(0, 240, 255, 0.03) 1px, transparent 1px);
+    }
+    
+    .bg-radar-dots {
+      background-image: radial-gradient(rgba(0, 240, 255, 0.08) 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+
+    /* Tactical Glows */
+    .glow-cyan {
+      box-shadow: 0 0 15px -2px rgba(6, 182, 212, 0.5);
+    }
+    .glow-emerald {
+      box-shadow: 0 0 15px -2px rgba(16, 185, 129, 0.5);
+    }
+    .glow-crimson {
+      box-shadow: 0 0 18px -2px rgba(244, 63, 94, 0.65);
+    }
+    .glow-amber {
+      box-shadow: 0 0 15px -2px rgba(245, 158, 11, 0.5);
+    }
+
+    /* Scanline overlay */
+    .scanlines {
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
+      background-size: 100% 4px;
+    }
+
+    /* Custom tactical scrollbars */
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #090e1a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1e293b;
+      border-radius: 2px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #0ea5e9;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col bg-[#050811] text-slate-100 overflow-hidden select-none">
+
+  <!-- ========================================================================= -->
+  <!-- PRE-DASHBOARD CYBER-TACTICAL LOGIN PORTAL (DISMISSABLE WITH AUTH) -->
+  <!-- ========================================================================= -->
+  <div id="login-portal" class="fixed inset-0 z-50 bg-[#050811] bg-radar-dots flex items-center justify-center p-4 transition-all duration-500">
+    <div class="absolute inset-0 bg-tactical-grid opacity-60 pointer-events-none"></div>
+
+    <div class="w-full max-w-md bg-[#080d1a]/95 border-2 border-cyan-800/80 rounded-2xl p-8 shadow-2xl relative z-10 backdrop-blur-xl">
+      <div class="text-center space-y-2 mb-6">
+        <div class="w-14 h-14 mx-auto rounded-xl bg-gradient-to-br from-cyan-500 to-blue-700 flex items-center justify-center border border-cyan-400/50 shadow-xl shadow-cyan-500/30">
+          <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m0 14v1m8-8h-1M5 12H4m15.364-5.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z" />
+          </svg>
+        </div>
+        <h1 class="font-mono text-xl font-bold tracking-wider text-white">THE OBSERVER</h1>
+        <div class="flex items-center justify-center space-x-2 text-[11px] font-mono text-cyan-400">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span>AIR-GAPPED INDUSTRIAL ENCLAVE</span>
+        </div>
+      </div>
+
+      <form onsubmit="handleLoginSubmit(event)" class="space-y-4 text-xs font-mono">
+        <div>
+          <label class="block text-slate-400 mb-1.5 uppercase tracking-wider text-[10px] font-bold">Operator Identity</label>
+          <input type="text" id="login-username" value="sec_operator" required class="w-full bg-slate-950/90 border border-slate-700/80 rounded-lg px-3.5 py-2 text-slate-200 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 font-mono">
+        </div>
+
+        <div>
+          <label class="block text-slate-400 mb-1.5 uppercase tracking-wider text-[10px] font-bold">Enclave Passphrase</label>
+          <input type="password" id="login-password" value="tactical2026" required class="w-full bg-slate-950/90 border border-slate-700/80 rounded-lg px-3.5 py-2 text-slate-200 focus:outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 font-mono">
+        </div>
+
+        <div class="p-2.5 rounded bg-slate-950/60 border border-slate-800 text-[10px] text-slate-400 flex items-center justify-between">
+          <span>TARGET ENCLAVE:</span>
+          <span class="text-cyan-300 font-bold">Site 01 (Primary)</span>
+        </div>
+
+        <button type="submit" class="w-full py-2.5 rounded-lg bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-xs tracking-wider uppercase transition-all shadow-lg shadow-cyan-600/30 flex items-center justify-center space-x-2">
+          <span>Authenticate to Enclave</span>
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+        </button>
+      </form>
+
+      <div class="mt-6 pt-4 border-t border-slate-800/80 text-center text-[10px] font-mono text-slate-500">
+        Classified Industrial LAN Platform • Zero External Telemetry
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- TOP GLOBAL HEADER STRIP -->
+  <!-- ========================================================================= -->
+  <header class="h-14 border-b border-cyan-950/60 bg-[#070b16]/95 backdrop-blur-md px-4 flex items-center justify-between z-40">
+    <div class="flex items-center space-x-3">
+      <!-- Cyber Logo -->
+      <div class="w-8 h-8 rounded bg-gradient-to-br from-cyan-500 to-blue-700 flex items-center justify-center border border-cyan-400/40 shadow-lg shadow-cyan-500/20">
+        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v1m0 14v1m8-8h-1M5 12H4m15.364-5.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z" />
+        </svg>
+      </div>
+      <div>
+        <div class="flex items-center space-x-2">
+          <span class="font-mono font-bold tracking-wider text-sm text-cyan-100">THE OBSERVER</span>
+          <span class="px-1.5 py-0.2 rounded text-[9px] font-mono bg-cyan-950 text-cyan-400 border border-cyan-800">TACTICAL LAN v2.1</span>
+        </div>
+        <div class="flex items-center space-x-2 text-[10px] text-slate-400 font-mono">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span>ENCLAVE: <strong class="text-slate-200">PRIMARY SITE</strong></span>
+          <span class="text-slate-600">|</span>
+          <span class="text-cyan-400/80">AIR-GAPPED 100% OFFLINE</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right System Indicators -->
+    <div class="flex items-center space-x-4">
+      <div class="hidden md:flex items-center space-x-2 text-xs font-mono bg-slate-900/80 px-3 py-1 rounded border border-slate-800">
+        <span class="text-slate-400">HOST TIME:</span>
+        <span class="text-cyan-300 font-bold" id="live-clock">23:18:50 UTC</span>
+      </div>
+
+      <!-- Quick Action: Subnet Scan -->
+      <button onclick="openModal('modal-scan')" class="px-3 py-1 rounded bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-700/80 text-cyan-300 text-xs font-mono font-medium flex items-center space-x-1.5 transition-all shadow-sm">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+        <span>RANGE SCAN</span>
+      </button>
+
+      <!-- Role Badge -->
+      <!-- Role Badge / Logout Trigger -->
+      <div onclick="handleLogout()" class="flex items-center space-x-2 pl-3 border-l border-slate-800 cursor-pointer hover:opacity-80 transition-opacity" title="Click to Log Out to Enclave Portal">
+        <div class="w-7 h-7 rounded bg-slate-800 border border-slate-700 flex items-center justify-center font-mono text-[11px] font-bold text-cyan-400">
+          OP
+        </div>
+        <div class="text-[11px] font-mono hidden sm:block">
+          <div class="text-slate-200 leading-tight">sec_operator</div>
+          <div class="text-[9px] text-slate-500 uppercase">Network Admin (Log Out)</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ========================================================================= -->
+  <!-- MAIN LAYOUT WRAPPER (SIDEBAR + MAIN CANVAS/TABLE CONTENT + RIGHT INSPECTOR) -->
+  <!-- ========================================================================= -->
+  <div class="flex-1 flex overflow-hidden relative">
+
+    <!-- LEFT CYBER-TACTICAL SIDEBAR -->
+    <aside class="w-60 border-r border-slate-800/80 bg-[#070b16] flex flex-col justify-between shrink-0 z-30">
+      <div class="py-4 space-y-6 overflow-y-auto">
+        <!-- Section: Views -->
+        <div>
+          <div class="px-4 text-[10px] font-mono font-bold uppercase tracking-wider text-cyan-500/70 mb-2">
+            Operations HUD
+          </div>
+          <nav class="space-y-0.5 px-2">
+            <button onclick="navigateTo('view-dashboard')" id="nav-dashboard" class="w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-mono font-medium transition-all bg-cyan-950/80 border border-cyan-800/80 text-cyan-200">
+              <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+              <span>Dashboard & Canvas</span>
+            </button>
+          </nav>
+        </div>
+
+        <!-- Section: Tabular Inventories -->
+        <div>
+          <div class="px-4 text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 mb-2">
+            Tabular Registries
+          </div>
+          <nav class="space-y-0.5 px-2 text-xs font-mono">
+            <!-- Devices Table Nav -->
+            <button onclick="navigateTo('view-devices-table')" id="nav-devices-table" class="w-full flex items-center justify-between px-3 py-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-900 transition-all">
+              <div class="flex items-center space-x-2.5">
+                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" /></svg>
+                <span>Device Inventory</span>
+              </div>
+              <span class="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.2 rounded">1,024</span>
+            </button>
+
+            <!-- Sites Table Nav -->
+            <button onclick="navigateTo('view-sites-table')" id="nav-sites-table" class="w-full flex items-center justify-between px-3 py-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-900 transition-all">
+              <div class="flex items-center space-x-2.5">
+                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                <span>Sites Management</span>
+              </div>
+              <span class="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.2 rounded">1</span>
+            </button>
+
+            <!-- Groups Table Nav -->
+            <button onclick="navigateTo('view-groups-table')" id="nav-groups-table" class="w-full flex items-center justify-between px-3 py-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-900 transition-all">
+              <div class="flex items-center space-x-2.5">
+                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                <span>Groups & Subgroups</span>
+              </div>
+              <span class="text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.2 rounded">6</span>
+            </button>
+
+            <!-- Ingestion Staging Grid -->
+            <button onclick="navigateTo('view-staging-table')" id="nav-staging-table" class="w-full flex items-center justify-between px-3 py-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-900 transition-all">
+              <div class="flex items-center space-x-2.5">
+                <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                <span>File Staging (CSV/DB)</span>
+              </div>
+              <span class="text-[10px] bg-amber-950 text-amber-400 border border-amber-800 px-1.5 py-0.2 rounded font-bold">1 BATCH</span>
+            </button>
+          </nav>
+        </div>
+
+        <!-- Section: System Diagnostics -->
+        <div>
+          <div class="px-4 text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400 mb-2">
+            System & Security
+          </div>
+          <nav class="space-y-0.5 px-2 text-xs font-mono">
+            <button onclick="navigateTo('view-audit-table')" id="nav-audit-table" class="w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-900 transition-all">
+              <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+              <span>Audit Trail Logs</span>
+            </button>
+          </nav>
+        </div>
+      </div>
+
+      <!-- Sidebar Footer Status -->
+      <div class="p-3 border-t border-slate-800/80 bg-slate-950/60 text-[10px] font-mono text-slate-500 flex flex-col space-y-1">
+        <div class="flex justify-between">
+          <span>POLLER ENGINE:</span>
+          <span class="text-emerald-400">ACTIVE (5s)</span>
+        </div>
+        <div class="flex justify-between">
+          <span>HOST METRICS:</span>
+          <span class="text-cyan-400">HEALTH AGENTS (30s)</span>
+        </div>
+        <div class="flex justify-between">
+          <span>DB WAL MODE:</span>
+          <span class="text-slate-300">SYNCED</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ========================================================================= -->
+    <!-- CENTER CONTENT AREA -->
+    <!-- ========================================================================= -->
+    <main class="flex-1 flex flex-col overflow-hidden relative bg-[#050811]">
+
+      <!-- ===================================================================== -->
+      <!-- VIEW 1: DASHBOARD (TOP METRICS CARDS + 2 CANVAS TABS) -->
+      <!-- ===================================================================== -->
+      <div id="view-dashboard" class="flex-1 flex flex-col overflow-hidden">
+        
+        <!-- TOP CRITICAL METRICS CARDS BAR -->
+        <section class="p-4 border-b border-cyan-950/40 bg-gradient-to-b from-[#070d1a] to-[#050811] grid grid-cols-2 lg:grid-cols-5 gap-3 shrink-0">
+          
+          <!-- Card 1: Up Connections -->
+          <div class="p-3 rounded-xl bg-slate-900/80 border border-emerald-900/50 relative overflow-hidden flex flex-col justify-between">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-mono text-slate-400">UP CONNECTIONS</span>
+              <span class="w-2 h-2 rounded-full bg-emerald-400 glow-emerald"></span>
+            </div>
+            <div class="mt-2 flex items-baseline space-x-2">
+              <span class="text-2xl font-bold font-mono text-emerald-400">998</span>
+              <span class="text-[11px] font-mono text-slate-500">/ 1,024 Total</span>
+            </div>
+            <div class="mt-1 h-1 w-full bg-slate-800 rounded-full overflow-hidden">
+              <div class="h-full bg-emerald-500 rounded-full" style="width: 97.4%"></div>
+            </div>
+          </div>
+
+          <!-- Card 2: Down Connections (Outage) -->
+          <div class="p-3 rounded-xl bg-slate-900/80 border border-rose-900/60 relative overflow-hidden flex flex-col justify-between">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-mono text-rose-300 font-semibold">DOWN CONNECTIONS</span>
+              <span class="w-2 h-2 rounded-full bg-rose-500 glow-crimson animate-ping"></span>
+            </div>
+            <div class="mt-2 flex items-baseline space-x-2">
+              <span class="text-2xl font-bold font-mono text-rose-400">1</span>
+              <span class="text-[11px] font-mono text-rose-300/80">ACC-SW-FL1</span>
+            </div>
+            <div class="mt-1 flex items-center justify-between text-[10px] font-mono text-rose-400">
+              <span>Root Cause Outage</span>
+              <span>100% loss</span>
+            </div>
+          </div>
+
+          <!-- Card 3: Suppressed Devices (Parent Down) -->
+          <div class="p-3 rounded-xl bg-slate-900/80 border border-amber-900/50 relative overflow-hidden flex flex-col justify-between">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-mono text-slate-400">SUPPRESSED NODES</span>
+              <span class="w-2 h-2 rounded-full bg-amber-400 glow-amber"></span>
+            </div>
+            <div class="mt-2 flex items-baseline space-x-2">
+              <span class="text-2xl font-bold font-mono text-amber-400">24</span>
+              <span class="text-[11px] font-mono text-slate-500">0 Pings Dispatched</span>
+            </div>
+            <div class="mt-1 text-[10px] font-mono text-amber-400/90 truncate">
+              Downstream alert storms halted
+            </div>
+          </div>
+
+          <!-- Card 4: High CPU Usage (> 80%) -->
+          <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800 relative overflow-hidden flex flex-col justify-between">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-mono text-slate-400">HIGH CPU (>80%)</span>
+              <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+            </div>
+            <div class="mt-2 flex items-baseline space-x-2">
+              <span class="text-2xl font-bold font-mono text-cyan-300">3</span>
+              <span class="text-[11px] font-mono text-slate-500">Systems Flagged</span>
+            </div>
+            <div class="mt-1 text-[10px] font-mono text-slate-400 truncate">
+              Peak: HISTORIAN-DB (91.2%)
+            </div>
+          </div>
+
+          <!-- Card 5: High RAM Usage (> 80%) -->
+          <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800 relative overflow-hidden flex flex-col justify-between">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-mono text-slate-400">HIGH RAM (>80%)</span>
+              <svg class="w-3.5 h-3.5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            </div>
+            <div class="mt-2 flex items-baseline space-x-2">
+              <span class="text-2xl font-bold font-mono text-blue-400">5</span>
+              <span class="text-[11px] font-mono text-slate-500">Systems Flagged</span>
+            </div>
+            <div class="mt-1 text-[10px] font-mono text-slate-400 truncate">
+              Peak: MES-SERVER-01 (88.4%)
+            </div>
+          </div>
+        </section>
+
+        <!-- DUAL CANVAS TABS HEADER -->
+        <div class="px-5 py-2 border-b border-slate-800 bg-[#080d19] flex items-center justify-between shrink-0">
+          <div class="flex items-center space-x-2">
+            <!-- Tab Switcher -->
+            <button onclick="switchCanvasTab('tree')" id="tab-canvas-tree" class="px-4 py-1.5 rounded-lg text-xs font-mono font-bold transition-all bg-cyan-600 text-white shadow-md flex items-center space-x-1.5">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7" /></svg>
+              <span>Logical Topology Tree (Width-Wise / 2-Branch)</span>
+            </button>
+            <button onclick="switchCanvasTab('physical')" id="tab-canvas-physical" class="px-4 py-1.5 rounded-lg text-xs font-mono font-medium transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 flex items-center space-x-1.5">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" /></svg>
+              <span>Physical Spatial Floorplan Layout</span>
+            </button>
+          </div>
+
+          <!-- Topology Toolbar Actions -->
+          <div class="flex items-center space-x-2 text-xs font-mono">
+            <button onclick="toggleCascadeFailureSimulation()" class="px-3 py-1 rounded bg-rose-950/70 border border-rose-800/80 text-rose-300 hover:bg-rose-900 flex items-center space-x-1.5 transition-all">
+              <span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+              <span id="btn-cascade-label">Simulate Switch Outage</span>
+            </button>
+            <button class="px-2.5 py-1 rounded bg-slate-800 text-slate-300 hover:text-white border border-slate-700">
+              Reset Zoom
+            </button>
+          </div>
+        </div>
+
+        <!-- CANVAS TAB CONTENT 1: HIERARCHICAL TOPOLOGY TREE -->
+        <div id="canvas-tab-tree" class="flex-1 relative overflow-auto bg-[#050811] bg-radar-dots p-8 flex justify-center items-start">
+          
+          <!-- Graph SVG Container -->
+          <svg class="w-[1020px] h-[780px] select-none" viewBox="0 0 1020 780">
+            <defs>
+              <linearGradient id="cyber-line-ok" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#00f0ff" stop-opacity="0.9"/>
+                <stop offset="100%" stop-color="#0284c7" stop-opacity="0.4"/>
+              </linearGradient>
+              <linearGradient id="cyber-line-fail" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#ff2a5f" stop-opacity="1"/>
+                <stop offset="100%" stop-color="#ff2a5f" stop-opacity="0.2"/>
+              </linearGradient>
+            </defs>
+
+            <!-- ============================================== -->
+            <!-- LAYER 1: ROUTER (WIDTH-WISE ROOT) -->
+            <!-- ============================================== -->
+            <g transform="translate(510, 35)" class="cursor-pointer" onclick="openDeviceInspector('192.168.1.1', 'CORE-ROUTER-01', 'CORE_ROUTER', '00:1A:2B:3C:01:00', '1.1 ms', '0%', '+2.1 µs', 'Core Infrastructure', 'Reachable', 18.5, 34.2)">
+              <rect x="-95" y="-22" width="190" height="44" rx="8" fill="#090e1c" stroke="#0ea5e9" stroke-width="2" class="hover:stroke-cyan-300 transition-all filter drop-shadow-[0_0_14px_rgba(14,165,233,0.3)]" />
+              <circle cx="-70" cy="0" r="5" fill="#10b981" class="glow-emerald" />
+              <text x="-52" y="-2" fill="#ffffff" font-size="11" font-weight="700" font-family="'JetBrains Mono', monospace">CORE-ROUTER-01</text>
+              <text x="-52" y="12" fill="#94a3b8" font-size="10" font-family="'JetBrains Mono', monospace">192.168.1.1</text>
+              <rect x="48" y="-9" width="34" height="16" rx="3" fill="#0369a1" />
+              <text x="65" y="2" fill="#e0f2fe" font-size="8" font-weight="700" text-anchor="middle">ROUTER</text>
+            </g>
+
+            <!-- Line: Router -> Core Switch -->
+            <path d="M 510 57 L 510 110" fill="none" stroke="url(#cyber-line-ok)" stroke-width="2" />
+
+            <!-- ============================================== -->
+            <!-- LAYER 2: CORE SWITCH -->
+            <!-- ============================================== -->
+            <g transform="translate(510, 130)" class="cursor-pointer" onclick="openDeviceInspector('192.168.1.2', 'CORE-SWITCH-01', 'AGGREGATE_SWITCH', '00:1A:2B:3C:02:00', '0.7 ms', '0%', '+0.9 µs', 'Distribution Backbone', 'Reachable', 22.0, 48.1)">
+              <rect x="-95" y="-22" width="190" height="44" rx="8" fill="#090e1c" stroke="#3b82f6" stroke-width="2" class="hover:stroke-blue-300 transition-all filter drop-shadow-[0_0_10px_rgba(59,130,246,0.3)]" />
+              <circle cx="-70" cy="0" r="5" fill="#10b981" class="glow-emerald" />
+              <text x="-52" y="-2" fill="#ffffff" font-size="11" font-weight="700" font-family="'JetBrains Mono', monospace">CORE-SWITCH-01</text>
+              <text x="-52" y="12" fill="#94a3b8" font-size="10" font-family="'JetBrains Mono', monospace">192.168.1.2</text>
+              <rect x="42" y="-9" width="40" height="16" rx="3" fill="#1d4ed8" />
+              <text x="62" y="2" fill="#dbeafe" font-size="8" font-weight="700" text-anchor="middle">CORE SW</text>
+            </g>
+
+            <!-- Horizontal Distribution Bus to Access A and Access B -->
+            <path d="M 510 152 L 510 190 L 260 190 L 260 220" fill="none" stroke="url(#cyber-line-ok)" stroke-width="2" />
+            <path d="M 510 152 L 510 190 L 760 190 L 760 220" fill="none" stroke="url(#cyber-line-ok)" stroke-width="2" />
+
+            <!-- ============================================== -->
+            <!-- LAYER 3: ACCESS SWITCH A (LEFT) & ACCESS SWITCH B (RIGHT) -->
+            <!-- ============================================== -->
+            <!-- Access Switch A (Subject to Outage Simulation) -->
+            <g id="node-access-a" transform="translate(260, 240)" class="cursor-pointer" onclick="openDeviceInspector('192.168.1.10', 'ACCESS-SW-A', 'ACCESS_SWITCH', '00:1A:2B:3C:03:01', '1.6 ms', '0%', '+2.8 µs', 'Zone: Floor 1 Lab', 'Reachable', 35.4, 61.2)">
+              <rect id="rect-access-a" x="-90" y="-22" width="180" height="44" rx="8" fill="#090e1c" stroke="#8b5cf6" stroke-width="2" class="transition-all" />
+              <circle id="dot-access-a" cx="-68" cy="0" r="5" fill="#10b981" class="glow-emerald transition-all" />
+              <text x="-50" y="-2" fill="#ffffff" font-size="11" font-weight="700" font-family="'JetBrains Mono', monospace">ACCESS-SW-A</text>
+              <text x="-50" y="12" fill="#94a3b8" font-size="10" font-family="'JetBrains Mono', monospace">192.168.1.10</text>
+              <rect x="40" y="-9" width="38" height="16" rx="3" fill="#581c87" />
+              <text x="59" y="2" fill="#f3e8ff" font-size="8" font-weight="700" text-anchor="middle">ACCESS</text>
+            </g>
+
+            <!-- Access Switch B (Right - Healthy) -->
+            <g transform="translate(760, 240)" class="cursor-pointer" onclick="openDeviceInspector('192.168.1.20', 'ACCESS-SW-B', 'ACCESS_SWITCH', '00:1A:2B:3C:03:02', '1.2 ms', '0%', '+1.5 µs', 'Zone: Floor 2 Ops', 'Reachable', 28.1, 52.0)">
+              <rect x="-90" y="-22" width="180" height="44" rx="8" fill="#090e1c" stroke="#8b5cf6" stroke-width="2" />
+              <circle cx="-68" cy="0" r="5" fill="#10b981" class="glow-emerald" />
+              <text x="-50" y="-2" fill="#ffffff" font-size="11" font-weight="700" font-family="'JetBrains Mono', monospace">ACCESS-SW-B</text>
+              <text x="-50" y="12" fill="#94a3b8" font-size="10" font-family="'JetBrains Mono', monospace">192.168.1.20</text>
+              <rect x="40" y="-9" width="38" height="16" rx="3" fill="#581c87" />
+              <text x="59" y="2" fill="#f3e8ff" font-size="8" font-weight="700" text-anchor="middle">ACCESS</text>
+            </g>
+
+            <!-- ============================================== -->
+            <!-- LAYER 4: VERTICAL 2-BRANCH ENDPOINTS UNDER ACCESS A -->
+            <!-- ============================================== -->
+            <!-- Trunk cable down from Access A -->
+            <path id="cable-access-a-trunk" d="M 260 262 L 260 310" stroke="#475569" stroke-width="2" />
+            <!-- Horizontal split bar for 2 columns: Left = 160, Right = 360 -->
+            <path d="M 160 310 L 360 310" stroke="#475569" stroke-width="2" stroke-dasharray="3,3" />
+
+            <!-- Column 1 (Left branch of Access A: X=160) -->
+            <path d="M 160 310 L 160 670" stroke="#1e293b" stroke-width="2" />
+            
+            <!-- Endpoints Left Branch Access A (4 nodes stacked vertically) -->
+            <!-- PC 1 -->
+            <path d="M 160 350 L 175 350" stroke="#334155" stroke-width="1.5" />
+            <g transform="translate(175, 350)" class="cursor-pointer" onclick="openDeviceInspector('192.168.1.101', 'PC-LINE-01', 'PC', '00:1A:2B:A1:01', '2.0 ms', '0%', 'N/A', 'Assembly Line A', 'Reachable', 42.1, 64.3)">
+              <rect x="0" y="-15" width="130" height="30" rx="5" fill="#090d19" stroke="#1e293b" class="hover:stroke-cyan-500" />
+              <circle cx="12" cy="0" r="4" fill="#10b981" class="cascade-child-dot" />
+              <text x="24" y="-2" fill="#e2e8f0" font-size="9" font-weight="700" font-family="'JetBrains Mono', monospace">PC-LINE-01</text>
+              <text x="24" y="9" fill="#64748b" font-size="8" font-family="'JetBrains Mono', monospace">192.168.1.101</text>
+            </g>
+
+            <!-- PC 2 -->
+            <path d="M 160 430 L 175 430" stroke="#334155" stroke-width="1.5" />
+            <g transform="translate(175, 430)" class="cursor-pointer" onclick="openDeviceInspector('192.168.1.102', 'PC-LINE-02', 'PC', '00:1A:2B:A1:02', '1.9 ms', '0%', 'N/A', 'Assembly Line A', 'Reachable', 38.0, 59.2)">
+              <rect x="0" y="-15" width="130" height="30" rx="5" fill="#090d19" stroke="#1e293b" class="hover:stroke-cyan-500" />
+              <circle cx="12" cy="0" r="4" fill="#10b981" class="cascade-child-dot" />
+              <text x="24" y="-2" fill="#e2e8f0" font-size="9" font-weight="700" font-family="'JetBrains Mono', monospace">PC-LINE-02</text>
+              <text x="24" y="9" fill="#64748b" font-size="8" font-family="'JetBrains Mono', monospace">192.168.1.102</text>
+            </g>
+
+            <!-- Server 1 -->
+            <path d="M 160 510 L 175 510" stroke="#334155" stroke-width="1.5" />
+            <g transform="translate(175, 510)" class="cursor-pointer" onclick="openDeviceInspector('192.168.1.103', 'HISTORIAN-DB', 'SERVER', '00:1A:2B:A1:03', '0.5 ms', '0%', '+0.3 µs', 'Core DB Cluster', 'Reachable', 91.2, 88.4)">
+              <rect x="0" y="-15" width="130" height="30" rx="5" fill="#090d19" stroke="#1e293b" class="hover:stroke-cyan-500" />
+              <circle cx="12" cy="0" r="4" fill="#10b981" class="cascade-child-dot" />
+              <text x="24" y="-2" fill="#e2e8f0" font-size="9" font-weight="700" font-family="'JetBrains Mono', monospace">HISTORIAN-DB</text>
+              <text x="24" y="9" fill="#64748b" font-size="8" font-family="'JetBrains Mono', monospace">192.168.1.103</text>
+            </g>
+
+            <!-- PC 3 -->
+            <path d="M 160 590 L 175 590" stroke="#334155" stroke-width="1.5" />
+            <g transform="translate(175, 590)" class="cursor-pointer" onclick="openDeviceInspector('192.168.1.104', 'ENG-WS-01', 'PC', '00:1A:2B:A1:04', '2.4 ms', '0%', 'N/A', 'Engineering', 'Reachable', 52.4, 71.0)">
+              <rect x="0" y="-15" width="130" height="30" rx="5" fill="#090d19" stroke="#1e293b" class="hover:stroke-cyan-500" />
+              <circle cx="12" cy="0" r="4" fill="#10b981" class="cascade-child-dot" />
+              <text x="24" y="-2" fill="#e2e8f0" font-size="9" font-weight="700" font-family="'JetBrains Mono', monospace">ENG-WS-01</text>
+              <text x="24" y="9" fill="#64748b" font-size="8" font-family="'JetBrains Mono', monospace">192.168.1.104</text>
+            </g>
+
+            <!-- Column 2 (Right branch of Access A: X=360) -->
+            <path d="M 360 310 L 360 670" stroke="#1e293b" stroke-width="2" />
+
+            <!-- Endpoints Right Branch Access A (4 nodes stacked vertically) -->
+            <!-- PC 4 -->
+            <path d="M 360 350 L 345 350" stroke="#334155" stroke-width="1.5" />
+            <g transform="translate(215, 350)" class="cursor-pointer" onclick="openDeviceInspector('192.168.1.105', 'HMI-PANEL-01', 'PC', '00:1A:2B:A1:05', '2.5 ms', '0%', 'N/A', 'Control Room', 'Reachable', 15.0, 31.0)">
+              <rect x="0" y="-15" width="130" height="30" rx="5" fill="#090d19" stroke="#1e293b" class="hover:stroke-cyan-500" />
+              <circle cx="12" cy="0" r="4" fill="#10b981" class="cascade-child-dot" />
+              <text x="24" y="-2" fill="#e2e8f0" font-size="9" font-weight="700" font-family="'JetBrains Mono', monospace">HMI-PANEL-01</text>
+              <text x="24" y="9" fill="#64748b" font-size="8" font-family="'JetBrains Mono', monospace">192.168.1.105</text>
+            </g>
+
+            <!-- PC 5 -->
+            <path d="M 360 430 L 345 430" stroke="#334155" stroke-width="1.5" />
+            <g transform="translate(215, 430)" class="cursor-pointer" onclick="openDeviceInspector('192.168.1.106', 'HMI-PANEL-02', 'PC', '00:1A:2B:A1:06', '2.2 ms', '0%', 'N/A', 'Control Room', 'Reachable', 17.2, 33.5)">
+              <rect x="0" y="-15" width="130" height="30" rx="5" fill="#090d19" stroke="#1e293b" class="hover:stroke-cyan-500" />
+              <circle cx="12" cy="0" r="4" fill="#10b981" class="cascade-child-dot" />
+              <text x="24" y="-2" fill="#e2e8f0" font-size="9" font-weight="700" font-family="'JetBrains Mono', monospace">HMI-PANEL-02</text>
+              <text x="24" y="9" fill="#64748b" font-size="8" font-family="'JetBrains Mono', monospace">192.168.1.106</text>
+            </g>
+
+            <!-- Server 2 -->
+            <path d="M 360 510 L 345 510" stroke="#334155" stroke-width="1.5" />
+            <g transform="translate(215, 510)" class="cursor-pointer" onclick="openDeviceInspector('192.168.1.107', 'TELEM-GW-01', 'SERVER', '00:1A:2B:A1:07', '1.0 ms', '0%', '+0.8 µs', 'Operations', 'Reachable', 45.0, 55.0)">
+              <rect x="0" y="-15" width="130" height="30" rx="5" fill="#090d19" stroke="#1e293b" class="hover:stroke-cyan-500" />
+              <circle cx="12" cy="0" r="4" fill="#10b981" class="cascade-child-dot" />
+              <text x="24" y="-2" fill="#e2e8f0" font-size="9" font-weight="700" font-family="'JetBrains Mono', monospace">TELEM-GW-01</text>
+              <text x="24" y="9" fill="#64748b" font-size="8" font-family="'JetBrains Mono', monospace">192.168.1.107</text>
+            </g>
+
+            <!-- Server 3 -->
+            <path d="M 360 590 L 345 590" stroke="#334155" stroke-width="1.5" />
+            <g transform="translate(215, 590)" class="cursor-pointer" onclick="openDeviceInspector('192.168.1.108', 'BACKUP-NAS', 'SERVER', '00:1A:2B:A1:08', '1.4 ms', '0%', 'N/A', 'IT Storage', 'Reachable', 65.0, 78.4)">
+              <rect x="0" y="-15" width="130" height="30" rx="5" fill="#090d19" stroke="#1e293b" class="hover:stroke-cyan-500" />
+              <circle cx="12" cy="0" r="4" fill="#10b981" class="cascade-child-dot" />
+              <text x="24" y="-2" fill="#e2e8f0" font-size="9" font-weight="700" font-family="'JetBrains Mono', monospace">BACKUP-NAS</text>
+              <text x="24" y="9" fill="#64748b" font-size="8" font-family="'JetBrains Mono', monospace">192.168.1.108</text>
+            </g>
+
+            <!-- ============================================== -->
+            <!-- LAYER 4: VERTICAL 2-BRANCH ENDPOINTS UNDER ACCESS B -->
+            <!-- ============================================== -->
+            <!-- Trunk cable down from Access B -->
+            <path d="M 760 262 L 760 310" stroke="#475569" stroke-width="2" />
+            <path d="M 660 310 L 860 310" stroke="#475569" stroke-width="2" stroke-dasharray="3,3" />
+
+            <!-- Column 1 (Left branch of Access B: X=660) -->
+            <path d="M 660 310 L 660 550" stroke="#1e293b" stroke-width="2" />
+            
+            <path d="M 660 350 L 675 350" stroke="#334155" stroke-width="1.5" />
+            <g transform="translate(675, 350)" class="cursor-pointer" onclick="openDeviceInspector('192.168.1.201', 'OPERATOR-WS-01', 'PC', '00:1A:2B:B2:01', '1.7 ms', '0%', 'N/A', 'Operations Floor', 'Reachable', 25.1, 44.0)">
+              <rect x="0" y="-15" width="130" height="30" rx="5" fill="#090d19" stroke="#1e293b" class="hover:stroke-cyan-500" />
+              <circle cx="12" cy="0" r="4" fill="#10b981" />
+              <text x="24" y="-2" fill="#e2e8f0" font-size="9" font-weight="700" font-family="'JetBrains Mono', monospace">OPERATOR-01</text>
+              <text x="24" y="9" fill="#64748b" font-size="8" font-family="'JetBrains Mono', monospace">192.168.1.201</text>
+            </g>
+
+            <path d="M 660 430 L 675 430" stroke="#334155" stroke-width="1.5" />
+            <g transform="translate(675, 430)" class="cursor-pointer" onclick="openDeviceInspector('192.168.1.202', 'OPERATOR-WS-02', 'PC', '00:1A:2B:B2:02', '1.8 ms', '0%', 'N/A', 'Operations Floor', 'Reachable', 30.5, 49.0)">
+              <rect x="0" y="-15" width="130" height="30" rx="5" fill="#090d19" stroke="#1e293b" class="hover:stroke-cyan-500" />
+              <circle cx="12" cy="0" r="4" fill="#10b981" />
+              <text x="24" y="-2" fill="#e2e8f0" font-size="9" font-weight="700" font-family="'JetBrains Mono', monospace">OPERATOR-02</text>
+              <text x="24" y="9" fill="#64748b" font-size="8" font-family="'JetBrains Mono', monospace">192.168.1.202</text>
+            </g>
+
+            <!-- Column 2 (Right branch of Access B: X=860) -->
+            <path d="M 860 310 L 860 550" stroke="#1e293b" stroke-width="2" />
+
+            <path d="M 860 350 L 845 350" stroke="#334155" stroke-width="1.5" />
+            <g transform="translate(715, 350)" class="cursor-pointer" onclick="openDeviceInspector('192.168.1.203', 'PRINTER-SEC-01', 'PC', '00:1A:2B:B2:03', '3.1 ms', '0%', 'N/A', 'Operations Floor', 'Reachable', 5.0, 12.0)">
+              <rect x="0" y="-15" width="130" height="30" rx="5" fill="#090d19" stroke="#1e293b" class="hover:stroke-cyan-500" />
+              <circle cx="12" cy="0" r="4" fill="#10b981" />
+              <text x="24" y="-2" fill="#e2e8f0" font-size="9" font-weight="700" font-family="'JetBrains Mono', monospace">PRINTER-01</text>
+              <text x="24" y="9" fill="#64748b" font-size="8" font-family="'JetBrains Mono', monospace">192.168.1.203</text>
+            </g>
+
+            <path d="M 860 430 L 845 430" stroke="#334155" stroke-width="1.5" />
+            <g transform="translate(715, 430)" class="cursor-pointer" onclick="openDeviceInspector('192.168.1.204', 'SCANNER-BC-01', 'PC', '00:1A:2B:B2:04', '2.8 ms', '0%', 'N/A', 'Operations Floor', 'Reachable', 8.2, 14.5)">
+              <rect x="0" y="-15" width="130" height="30" rx="5" fill="#090d19" stroke="#1e293b" class="hover:stroke-cyan-500" />
+              <circle cx="12" cy="0" r="4" fill="#10b981" />
+              <text x="24" y="-2" fill="#e2e8f0" font-size="9" font-weight="700" font-family="'JetBrains Mono', monospace">BARCODE-SCAN</text>
+              <text x="24" y="9" fill="#64748b" font-size="8" font-family="'JetBrains Mono', monospace">192.168.1.204</text>
+            </g>
+
+            <text x="510" y="730" fill="#475569" font-size="11" font-family="'JetBrains Mono', monospace" text-anchor="middle">
+              ▲ 4-Layer Hierarchy: Router/Switches Horizontal Width-Wise • Endpoints Vertical 2-Branch Under Access Switches ▲
+            </text>
+          </svg>
+        </div>
+
+        <!-- CANVAS TAB CONTENT 2: PHYSICAL SPATIAL FLOORPLAN -->
+        <div id="canvas-tab-physical" class="flex-1 relative overflow-auto bg-[#050811] bg-tactical-grid p-8 hidden flex-col items-center justify-center">
+          <!-- Floor Selection Bar -->
+          <div class="absolute top-4 left-6 flex items-center space-x-3 bg-slate-900/90 border border-slate-800 p-2 rounded-xl backdrop-blur-md">
+            <span class="text-xs font-mono text-cyan-400 font-bold">SPATIAL FILE:</span>
+            <select class="bg-slate-950 border border-slate-700 rounded text-xs text-slate-200 px-3 py-1 font-mono">
+              <option>floor_1_lab.json (1st Floor Server Lab)</option>
+              <option>floor_2_ops.json (2nd Floor SCADA Control)</option>
+            </select>
+            <span class="text-[11px] font-mono text-slate-500">Zero Logical Cables Mode</span>
+          </div>
+
+          <!-- Floorplan Canvas Map -->
+          <div class="w-[880px] h-[540px] bg-slate-950/90 border-2 border-slate-800 rounded-2xl relative shadow-2xl p-6 overflow-hidden">
+            <!-- Room 101: RACK ROOM -->
+            <div class="absolute top-8 left-8 w-64 h-64 border-2 border-dashed border-cyan-800/80 bg-slate-900/60 rounded-xl p-4">
+              <div class="text-xs font-mono font-bold text-cyan-300 border-b border-slate-800 pb-1.5 flex justify-between">
+                <span>ROOM 101 (RACK ENCLAVE)</span>
+                <span class="text-slate-400 text-[10px]">U42</span>
+              </div>
+              
+              <!-- Devices placed at spatial coordinates -->
+              <div class="mt-4 space-y-3">
+                <div onclick="openDeviceInspector('192.168.1.1', 'CORE-ROUTER-01', 'CORE_ROUTER', '00:1A:2B:3C:01:00', '1.1 ms', '0%', '+2.1 µs', 'Server Rack A', 'Reachable', 18.5, 34.2)" class="cursor-pointer p-2.5 rounded-lg bg-slate-950 border border-cyan-900 hover:border-cyan-400 flex items-center justify-between">
+                  <div class="flex items-center space-x-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 glow-emerald"></span>
+                    <span class="font-mono text-xs font-bold text-slate-100">CORE-ROUTER-01</span>
+                  </div>
+                  <span class="text-[10px] font-mono text-cyan-400">Rack A (U24)</span>
+                </div>
+
+                <div onclick="openDeviceInspector('192.168.1.2', 'CORE-SWITCH-01', 'AGGREGATE_SWITCH', '00:1A:2B:3C:02:00', '0.7 ms', '0%', '+0.9 µs', 'Server Rack A', 'Reachable', 22.0, 48.1)" class="cursor-pointer p-2.5 rounded-lg bg-slate-950 border border-slate-800 hover:border-cyan-400 flex items-center justify-between">
+                  <div class="flex items-center space-x-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 glow-emerald"></span>
+                    <span class="font-mono text-xs font-bold text-slate-100">CORE-SWITCH-01</span>
+                  </div>
+                  <span class="text-[10px] font-mono text-slate-400">Rack A (U22)</span>
+                </div>
+
+                <div onclick="openDeviceInspector('192.168.1.103', 'HISTORIAN-DB', 'SERVER', '00:1A:2B:A1:03', '0.5 ms', '0%', '+0.3 µs', 'Server Rack B', 'Reachable', 91.2, 88.4)" class="cursor-pointer p-2.5 rounded-lg bg-slate-950 border border-slate-800 hover:border-cyan-400 flex items-center justify-between">
+                  <div class="flex items-center space-x-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 glow-emerald"></span>
+                    <span class="font-mono text-xs font-bold text-slate-100">HISTORIAN-DB</span>
+                  </div>
+                  <span class="text-[10px] font-mono text-slate-400">Rack B (U12)</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Room 102: CONTROL & ROBOTICS BAY -->
+            <div class="absolute top-8 right-8 w-96 h-96 border-2 border-dashed border-amber-800/80 bg-slate-900/60 rounded-xl p-4">
+              <div class="text-xs font-mono font-bold text-amber-300 border-b border-slate-800 pb-1.5 flex justify-between">
+                <span>BAY 3: ROBOTICS & HMI KIOSKS</span>
+                <span class="text-slate-400 text-[10px]">LINE A</span>
+              </div>
+
+              <!-- Devices placed spatially on bay floor -->
+              <div class="grid grid-cols-2 gap-3 mt-4">
+                <div onclick="openDeviceInspector('192.168.1.101', 'PC-LINE-01', 'PC', '00:1A:2B:A1:01', '2.0 ms', '0%', 'N/A', 'Assembly Line A', 'Reachable', 42.1, 64.3)" class="cursor-pointer p-3 rounded-lg bg-slate-950 border border-slate-800 hover:border-cyan-400 flex flex-col space-y-1">
+                  <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                  <span class="font-mono text-xs font-bold text-slate-200">PC-LINE-01</span>
+                  <span class="text-[10px] font-mono text-slate-500">Coord: (320, 140)</span>
+                </div>
+
+                <div onclick="openDeviceInspector('192.168.1.105', 'HMI-PANEL-01', 'PC', '00:1A:2B:A1:05', '2.5 ms', '0%', 'N/A', 'Control Room', 'Reachable', 15.0, 31.0)" class="cursor-pointer p-3 rounded-lg bg-slate-950 border border-slate-800 hover:border-cyan-400 flex flex-col space-y-1">
+                  <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                  <span class="font-mono text-xs font-bold text-slate-200">HMI-PANEL-01</span>
+                  <span class="text-[10px] font-mono text-slate-500">Coord: (480, 140)</span>
+                </div>
+
+                <div onclick="openDeviceInspector('192.168.1.107', 'TELEM-GW-01', 'SERVER', '00:1A:2B:A1:07', '1.0 ms', '0%', '+0.8 µs', 'Operations', 'Reachable', 45.0, 55.0)" class="cursor-pointer p-3 rounded-lg bg-slate-950 border border-slate-800 hover:border-cyan-400 flex flex-col space-y-1">
+                  <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                  <span class="font-mono text-xs font-bold text-slate-200">TELEM-GW-01</span>
+                  <span class="text-[10px] font-mono text-slate-500">Coord: (320, 260)</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Floorplan Legend -->
+            <div class="absolute bottom-4 left-8 text-xs font-mono text-slate-500">
+              Parsed from <code class="text-cyan-400">layout_schema.json</code> • Physical spatial coordinates only; zero logical network cables drawn.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================================================================== -->
+      <!-- VIEW 2: TABULAR VIEW — DEVICE INVENTORY (WITH "+" CREATE MODAL & EDIT/DELETE) -->
+      <!-- ===================================================================== -->
+      <div id="view-devices-table" class="flex-1 flex flex-col overflow-hidden hidden bg-[#050811]">
+        <!-- Table Header Ribbon -->
+        <div class="p-4 border-b border-slate-800 bg-[#070d1a] flex items-center justify-between shrink-0">
+          <div>
+            <h2 class="text-base font-bold font-mono text-white flex items-center space-x-2">
+              <span>DEVICE INVENTORY MATRIX</span>
+              <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-cyan-950 text-cyan-400 border border-cyan-800">3NF PERSISTED</span>
+            </h2>
+            <p class="text-xs font-mono text-slate-400">Master hardware repository keyed by immutable MAC address and mutable primary IP.</p>
+          </div>
+
+          <!-- RIGHT EDGE: PLUS (+) ICON TO CREATE DEVICE -->
+          <div class="flex items-center space-x-3">
+            <div class="relative">
+              <input type="text" placeholder="Filter devices..." class="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs font-mono text-slate-200 w-48 focus:outline-none focus:border-cyan-500">
+            </div>
+            <!-- The "+" Create Button -->
+            <button onclick="openModal('modal-create-device')" class="p-2 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white shadow-lg shadow-cyan-600/30 transition-all flex items-center space-x-1.5 font-mono text-xs font-bold" title="Create New Device">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" /></svg>
+              <span class="hidden sm:inline">Add Device</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Table Container -->
+        <div class="flex-1 overflow-auto p-4">
+          <table class="w-full text-left text-xs font-mono border-collapse border border-slate-800 rounded-lg overflow-hidden">
+            <thead class="bg-slate-900/90 text-slate-400 border-b border-slate-800 text-[11px] uppercase tracking-wider">
+              <tr>
+                <th class="p-3">Status</th>
+                <th class="p-3">Device Name</th>
+                <th class="p-3">Primary IP</th>
+                <th class="p-3">MAC Address (Natural Key)</th>
+                <th class="p-3">Classification</th>
+                <th class="p-3">Group Assignment</th>
+                <th class="p-3">Parent Uplink</th>
+                <th class="p-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="devices-table-body" class="divide-y divide-slate-800/80 bg-slate-950/60 text-slate-300">
+              <!-- Dynamically populated or static rows with action icons -->
+              <tr class="hover:bg-slate-900/50 transition-colors">
+                <td class="p-3"><span class="px-2 py-0.5 rounded text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-800">REACHABLE</span></td>
+                <td class="p-3 font-bold text-white">CORE-ROUTER-01</td>
+                <td class="p-3 text-cyan-300">192.168.1.1</td>
+                <td class="p-3 text-slate-400">00:1A:2B:3C:01:00</td>
+                <td class="p-3">CORE_ROUTER</td>
+                <td class="p-3">Core Infrastructure</td>
+                <td class="p-3 text-slate-500">— (Site Root)</td>
+                <td class="p-3 text-right space-x-1">
+                  <button onclick="openEditDevice('192.168.1.1', 'CORE-ROUTER-01', 'CORE_ROUTER', '00:1A:2B:3C:01:00')" class="p-1.5 rounded hover:bg-slate-800 text-slate-300 hover:text-cyan-400 transition-colors" title="Edit Device">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                  </button>
+                  <button onclick="openDeleteConfirm('CORE-ROUTER-01', '192.168.1.1')" class="p-1.5 rounded hover:bg-rose-950/60 text-slate-400 hover:text-rose-400 transition-colors" title="Delete Device">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                  </button>
+                </td>
+              </tr>
+
+              <tr class="hover:bg-slate-900/50 transition-colors">
+                <td class="p-3"><span class="px-2 py-0.5 rounded text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-800">REACHABLE</span></td>
+                <td class="p-3 font-bold text-white">HISTORIAN-DB</td>
+                <td class="p-3 text-cyan-300">192.168.1.103</td>
+                <td class="p-3 text-slate-400">00:1A:2B:A1:01:03</td>
+                <td class="p-3">SERVER</td>
+                <td class="p-3">Core DB Cluster</td>
+                <td class="p-3 text-slate-400">ACCESS-SW-A (192.168.1.10)</td>
+                <td class="p-3 text-right space-x-1">
+                  <button onclick="openEditDevice('192.168.1.103', 'HISTORIAN-DB', 'SERVER', '00:1A:2B:A1:01:03')" class="p-1.5 rounded hover:bg-slate-800 text-slate-300 hover:text-cyan-400 transition-colors" title="Edit Device">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                  </button>
+                  <button onclick="openDeleteConfirm('HISTORIAN-DB', '192.168.1.103')" class="p-1.5 rounded hover:bg-rose-950/60 text-slate-400 hover:text-rose-400 transition-colors" title="Delete Device">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Standardized Tactical Pagination Footer -->
+        <div class="px-4 py-2.5 border-t border-slate-800 bg-[#070d1a] flex flex-col sm:flex-row items-center justify-between text-xs font-mono text-slate-400 gap-2 shrink-0">
+          <div class="flex items-center space-x-3">
+            <span>Showing <strong class="text-cyan-300">1–50</strong> of <strong class="text-white">1,024</strong> devices</span>
+            <div class="flex items-center space-x-1.5 pl-3 border-l border-slate-800">
+              <span class="text-[11px] text-slate-500">Rows:</span>
+              <select class="bg-slate-950 border border-slate-800 rounded px-2 py-0.5 text-xs text-slate-300 focus:outline-none focus:border-cyan-500">
+                <option selected>50</option>
+                <option>100</option>
+                <option>250</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Page Navigation Pills -->
+          <div class="flex items-center space-x-1">
+            <button class="px-2 py-1 rounded bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700 disabled:opacity-30" disabled title="First Page">|&lt;</button>
+            <button class="px-2.5 py-1 rounded bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:border-slate-700 disabled:opacity-30" disabled title="Previous Page">&lt;</button>
+            
+            <button class="px-2.5 py-1 rounded bg-cyan-600 text-white font-bold border border-cyan-500 shadow-sm">1</button>
+            <button class="px-2.5 py-1 rounded bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800">2</button>
+            <button class="px-2.5 py-1 rounded bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800">3</button>
+            <span class="px-1 text-slate-600">...</span>
+            <button class="px-2.5 py-1 rounded bg-slate-900 text-slate-300 hover:bg-slate-800 border border-slate-800">21</button>
+            
+            <button class="px-2.5 py-1 rounded bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:border-slate-700" title="Next Page">&gt;</button>
+            <button class="px-2 py-1 rounded bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:border-slate-700" title="Last Page">&gt;|</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===================================================================== -->
+      <!-- VIEW 3: TABULAR VIEW — SITES MANAGEMENT -->
+      <!-- ===================================================================== -->
+      <div id="view-sites-table" class="flex-1 flex flex-col overflow-hidden hidden bg-[#050811]">
+        <div class="p-4 border-b border-slate-800 bg-[#070d1a] flex items-center justify-between shrink-0">
+          <div>
+            <h2 class="text-base font-bold font-mono text-white flex items-center space-x-2">
+              <span>SITES REGISTRY</span>
+              <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-cyan-950 text-cyan-400 border border-cyan-800">ENCLAVES</span>
+            </h2>
+            <p class="text-xs font-mono text-slate-400">Scoped facility partitions (Default Site 1 seeded for single-enclave installations).</p>
+          </div>
+          <!-- Right Plus (+) Icon -->
+          <button onclick="openModal('modal-create-site')" class="p-2 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white shadow-lg font-mono text-xs font-bold flex items-center space-x-1.5">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" /></svg>
+            <span class="hidden sm:inline">Add Site</span>
+          </button>
+        </div>
+        <div class="p-4 overflow-auto">
+          <table class="w-full text-left text-xs font-mono border border-slate-800 rounded-lg overflow-hidden">
+            <thead class="bg-slate-900 text-slate-400 text-[11px] uppercase">
+              <tr>
+                <th class="p-3">Site ID</th>
+                <th class="p-3">Site Name</th>
+                <th class="p-3">Facility Code</th>
+                <th class="p-3">Description</th>
+                <th class="p-3">Enrolled Devices</th>
+                <th class="p-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800 bg-slate-950 text-slate-300">
+              <tr>
+                <td class="p-3 text-cyan-400 font-bold">1</td>
+                <td class="p-3 font-semibold text-white">Primary Site Enclave</td>
+                <td class="p-3 text-slate-400">SITE-01</td>
+                <td class="p-3">Default industrial LAN facility enclave</td>
+                <td class="p-3 text-emerald-400 font-bold">1,024</td>
+                <td class="p-3 text-right space-x-1">
+                  <button class="p-1.5 rounded hover:bg-slate-800 text-slate-300 hover:text-cyan-400" title="Edit Site">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ===================================================================== -->
+      <!-- VIEW 4: TABULAR VIEW — GROUPS & SUBGROUPS (3NF SELF-REFERENCING) -->
+      <!-- ===================================================================== -->
+      <div id="view-groups-table" class="flex-1 flex flex-col overflow-hidden hidden bg-[#050811]">
+        <div class="p-4 border-b border-slate-800 bg-[#070d1a] flex items-center justify-between shrink-0">
+          <div>
+            <h2 class="text-base font-bold font-mono text-white flex items-center space-x-2">
+              <span>GROUPS & SUBGROUPS HIERARCHY</span>
+              <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-cyan-950 text-cyan-400 border border-cyan-800">SELF-REFERENCING 3NF</span>
+            </h2>
+            <p class="text-xs font-mono text-slate-400">Unified organizational adjacency tree supporting infinite nesting depth.</p>
+          </div>
+          <!-- Right Plus (+) Icon -->
+          <button onclick="openModal('modal-create-group')" class="p-2 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white shadow-lg font-mono text-xs font-bold flex items-center space-x-1.5">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" /></svg>
+            <span class="hidden sm:inline">Add Group / Subgroup</span>
+          </button>
+        </div>
+        <div class="p-4 overflow-auto">
+          <table class="w-full text-left text-xs font-mono border border-slate-800 rounded-lg overflow-hidden">
+            <thead class="bg-slate-900 text-slate-400 text-[11px] uppercase">
+              <tr>
+                <th class="p-3">ID</th>
+                <th class="p-3">Name</th>
+                <th class="p-3">Classification</th>
+                <th class="p-3">Parent Group (Adjacency)</th>
+                <th class="p-3">Devices Count</th>
+                <th class="p-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800 bg-slate-950 text-slate-300">
+              <tr>
+                <td class="p-3 text-slate-500">1</td>
+                <td class="p-3 font-semibold text-slate-300">Unassigned Group</td>
+                <td class="p-3"><span class="px-1.5 py-0.2 rounded text-[9px] bg-slate-800 text-slate-400">ROOT GROUP</span></td>
+                <td class="p-3 text-slate-500">— (Fallback Pool)</td>
+                <td class="p-3">0</td>
+                <td class="p-3 text-right text-slate-600 font-mono text-[10px]">SYSTEM RESERVED</td>
+              </tr>
+              <tr>
+                <td class="p-3 text-cyan-400 font-bold">2</td>
+                <td class="p-3 font-semibold text-white">Operations</td>
+                <td class="p-3"><span class="px-1.5 py-0.2 rounded text-[9px] bg-cyan-950 text-cyan-400 border border-cyan-800">ROOT GROUP</span></td>
+                <td class="p-3 text-slate-500">—</td>
+                <td class="p-3">342</td>
+                <td class="p-3 text-right space-x-1">
+                  <button class="p-1.5 rounded hover:bg-slate-800 text-slate-300 hover:text-cyan-400"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg></button>
+                  <button class="p-1.5 rounded hover:bg-rose-950 text-slate-400 hover:text-rose-400"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
+                </td>
+              </tr>
+              <tr>
+                <td class="p-3 text-cyan-400 font-bold">3</td>
+                <td class="p-3 font-semibold text-slate-200 pl-6">└ Assembly Line A</td>
+                <td class="p-3"><span class="px-1.5 py-0.2 rounded text-[9px] bg-indigo-950 text-indigo-400 border border-indigo-800">SUBGROUP</span></td>
+                <td class="p-3 text-slate-300">Operations (ID: 2)</td>
+                <td class="p-3">128</td>
+                <td class="p-3 text-right space-x-1">
+                  <button class="p-1.5 rounded hover:bg-slate-800 text-slate-300 hover:text-cyan-400"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg></button>
+                  <button class="p-1.5 rounded hover:bg-rose-950 text-slate-400 hover:text-rose-400"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ===================================================================== -->
+      <!-- VIEW 5: PERSISTENT INGESTION STAGING TABLE -->
+      <!-- ===================================================================== -->
+      <div id="view-staging-table" class="flex-1 flex flex-col overflow-hidden hidden bg-[#050811]">
+        <div class="p-4 border-b border-slate-800 bg-[#070d1a] flex items-center justify-between shrink-0">
+          <div>
+            <h2 class="text-base font-bold font-mono text-white flex items-center space-x-2">
+              <span>PERSISTENT INGESTION STAGING (BATCH #104)</span>
+              <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-amber-950 text-amber-400 border border-amber-800">STAGED</span>
+            </h2>
+            <p class="text-xs font-mono text-slate-400">Multi-format file upload (`factory_inventory.csv`). Edits persist safely in DB.</p>
+          </div>
+          <div class="flex items-center space-x-3">
+            <button class="px-3 py-1.5 rounded-lg bg-rose-950/80 text-rose-300 border border-rose-800 text-xs font-mono">Discard Batch</button>
+            <button class="px-4 py-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-mono text-xs font-bold shadow-lg">Commit Valid Rows</button>
+          </div>
+        </div>
+        <div class="p-4 overflow-auto">
+          <p class="text-xs font-mono text-slate-400">Refer to persistent staging grid in Section 5 of PRD v2.1.</p>
+        </div>
+      </div>
+
+      <!-- ===================================================================== -->
+      <!-- VIEW 6: AUDIT TRAIL LOGS -->
+      <!-- ===================================================================== -->
+      <div id="view-audit-table" class="flex-1 flex flex-col overflow-hidden hidden bg-[#050811]">
+        <div class="p-4 border-b border-slate-800 bg-[#070d1a]">
+          <h2 class="text-base font-bold font-mono text-white">OPERATIONAL AUDIT LOGS</h2>
+          <p class="text-xs font-mono text-slate-400">Immutable chronological log of configuration and topology mutations.</p>
+        </div>
+        <div class="p-4 overflow-auto">
+          <table class="w-full text-left text-xs font-mono border border-slate-800 rounded-lg">
+            <thead class="bg-slate-900 text-slate-400 text-[11px] uppercase">
+              <tr>
+                <th class="p-3">Timestamp</th>
+                <th class="p-3">Actor</th>
+                <th class="p-3">Action</th>
+                <th class="p-3">Entity Type</th>
+                <th class="p-3">Entity ID</th>
+                <th class="p-3">Change Summary</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800 bg-slate-950 text-slate-300">
+              <tr>
+                <td class="p-3 text-slate-400">2026-10-15 22:50:11</td>
+                <td class="p-3 text-cyan-400 font-bold">admin</td>
+                <td class="p-3"><span class="px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-400">DEVICE_CREATE</span></td>
+                <td class="p-3">DEVICE</td>
+                <td class="p-3">1024</td>
+                <td class="p-3">Provisioned HISTORIAN-DB (00:1A:2B:A1:03) to ACCESS-SW-A</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- ========================================================================= -->
+    <!-- RIGHT DEVICE-SPECIFIC DETAILS & HEALTH INSPECTION PANEL -->
+    <!-- ========================================================================= -->
+    <aside id="device-inspector" class="w-96 border-l border-cyan-950/60 bg-[#080d1a]/95 backdrop-blur-xl p-5 flex flex-col justify-between shadow-2xl shrink-0 z-30 overflow-y-auto">
+      <div class="space-y-5">
+        
+        <!-- Inspector Header -->
+        <div class="flex items-start justify-between border-b border-slate-800/80 pb-3">
+          <div>
+            <div class="flex items-center space-x-2">
+              <span id="inspect-dot" class="w-2.5 h-2.5 rounded-full bg-emerald-400 glow-emerald"></span>
+              <h3 id="inspect-title" class="text-sm font-bold text-white font-mono tracking-tight">HISTORIAN-DB</h3>
+            </div>
+            <p id="inspect-ip-addr" class="text-xs text-slate-400 font-mono mt-0.5">192.168.1.103</p>
+          </div>
+          <span id="inspect-dev-type" class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-800 text-cyan-400 border border-slate-700">SERVER</span>
+        </div>
+
+        <!-- Section 1: Network Reachability & Low-Level Telemetry -->
+        <div class="space-y-2">
+          <div class="text-[10px] font-mono font-bold uppercase tracking-wider text-cyan-400">
+            Network Reachability (ICMP/NTP - 5s)
+          </div>
+          <div class="grid grid-cols-3 gap-2">
+            <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+              <div class="text-[9px] font-mono text-slate-400">RTT LATENCY</div>
+              <div id="inspect-rtt-val" class="text-xs font-mono font-bold text-emerald-400 mt-0.5">0.5 ms</div>
+            </div>
+            <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+              <div class="text-[9px] font-mono text-slate-400">PACKET LOSS</div>
+              <div id="inspect-loss-val" class="text-xs font-mono font-bold text-emerald-400 mt-0.5">0.0%</div>
+            </div>
+            <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+              <div class="text-[9px] font-mono text-slate-400">CLOCK DRIFT</div>
+              <div id="inspect-ntp-val" class="text-xs font-mono font-bold text-cyan-300 mt-0.5">+0.3 µs</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 2: Host Operating Health (30s Cadence / Port 9182) -->
+        <div class="space-y-3 pt-3 border-t border-slate-800">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-mono font-bold uppercase tracking-wider text-cyan-400">Host Operating Health (30s)</span>
+            <span class="px-1.5 py-0.2 rounded text-[9px] font-mono bg-emerald-950 text-emerald-400 border border-emerald-800">AGENT ONLINE</span>
+          </div>
+
+          <!-- CPU Utilization Gauge -->
+          <div class="space-y-1">
+            <div class="flex justify-between text-xs font-mono">
+              <span class="text-slate-400">CPU Load (Intel Xeon E-2288G)</span>
+              <span id="inspect-cpu-text" class="font-bold text-rose-400">91.2% (HIGH)</span>
+            </div>
+            <div class="h-2 w-full bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+              <div id="inspect-cpu-bar" class="h-full bg-gradient-to-r from-amber-500 to-rose-500 rounded-full" style="width: 91.2%"></div>
+            </div>
+          </div>
+
+          <!-- RAM Utilization Gauge -->
+          <div class="space-y-1">
+            <div class="flex justify-between text-xs font-mono">
+              <span class="text-slate-400">RAM Utilization</span>
+              <span id="inspect-ram-text" class="font-bold text-blue-400">88.4% (56.5 / 64 GB)</span>
+            </div>
+            <div class="h-2 w-full bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+              <div id="inspect-ram-bar" class="h-full bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full" style="width: 88.4%"></div>
+            </div>
+          </div>
+
+          <!-- Multi-Volume Normalized Disk Storage (1NF Child Table) -->
+          <div class="space-y-2 pt-1">
+            <div class="text-[11px] font-mono text-slate-400 font-semibold">Normalized Disks (disk_volume_samples):</div>
+            
+            <!-- Partition 1: C: -->
+            <div class="p-2 rounded bg-slate-950 border border-slate-800 space-y-1 text-[11px] font-mono">
+              <div class="flex justify-between">
+                <span class="text-slate-300">Volume C: (System OS)</span>
+                <span class="text-slate-400">52.1% used</span>
+              </div>
+              <div class="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden">
+                <div class="h-full bg-cyan-400" style="width: 52.1%"></div>
+              </div>
+              <div class="flex justify-between text-[10px] text-slate-500">
+                <span>Free: 245 GB</span>
+                <span>Total: 512 GB</span>
+              </div>
+            </div>
+
+            <!-- Partition 2: D: -->
+            <div class="p-2 rounded bg-slate-950 border border-slate-800 space-y-1 text-[11px] font-mono">
+              <div class="flex justify-between">
+                <span class="text-slate-300">Volume D: (SQL Data Lake)</span>
+                <span class="text-amber-400 font-bold">81.4% used</span>
+              </div>
+              <div class="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden">
+                <div class="h-full bg-amber-400" style="width: 81.4%"></div>
+              </div>
+              <div class="flex justify-between text-[10px] text-slate-500">
+                <span>Free: 380 GB</span>
+                <span>Total: 2,048 GB</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Network Throughput -->
+          <div class="grid grid-cols-2 gap-2 pt-1">
+            <div class="p-2 rounded bg-slate-950 border border-slate-800 text-[11px] font-mono">
+              <div class="text-slate-500 text-[10px]">Net Rx (Inbound)</div>
+              <div class="font-bold text-slate-200 mt-0.5">14.8 Mbps</div>
+            </div>
+            <div class="p-2 rounded bg-slate-950 border border-slate-800 text-[11px] font-mono">
+              <div class="text-slate-500 text-[10px]">Net Tx (Outbound)</div>
+              <div class="font-bold text-slate-200 mt-0.5">8.2 Mbps</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 3: Hardware & Topology Identity -->
+        <div class="space-y-1.5 pt-3 border-t border-slate-800 text-[11px] font-mono">
+          <div class="text-[10px] font-bold uppercase tracking-wider text-cyan-400">Hardware & Uplink Identity</div>
+          <div class="flex justify-between text-slate-400">
+            <span>MAC Address:</span>
+            <span id="inspect-mac-val" class="text-cyan-300 font-semibold">00:1A:2B:A1:01:03</span>
+          </div>
+          <div class="flex justify-between text-slate-400">
+            <span>Operational Group:</span>
+            <span id="inspect-group-val" class="text-slate-200">Core DB Cluster</span>
+          </div>
+          <div class="flex justify-between text-slate-400">
+            <span>Uplink Switch:</span>
+            <span class="text-purple-400">ACCESS-SW-A (192.168.1.10)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom Panel Controls -->
+      <div class="pt-4 border-t border-slate-800 flex space-x-2">
+        <button class="flex-1 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-mono">
+          Send Ping
+        </button>
+        <button class="flex-1 py-1.5 rounded-lg bg-cyan-900/60 hover:bg-cyan-800 border border-cyan-700 text-cyan-200 text-xs font-mono">
+          Historical SLA
+        </button>
+      </div>
+    </aside>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL 1: CREATE DEVICE (OPENED FROM "+" BUTTON IN TABLE) -->
+  <!-- ========================================================================= -->
+  <div id="modal-create-device" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="w-full max-w-lg bg-[#080e1c] border border-cyan-800 rounded-xl p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div class="flex items-center space-x-2">
+          <div class="w-6 h-6 rounded bg-cyan-600 flex items-center justify-center text-white text-xs font-bold">+</div>
+          <h3 class="font-mono font-bold text-white text-sm">PROVISION NEW NETWORK DEVICE</h3>
+        </div>
+        <button onclick="closeModal('modal-create-device')" class="text-slate-400 hover:text-white">&times;</button>
+      </div>
+
+      <form onsubmit="handleCreateDevice(event)" class="space-y-3 text-xs font-mono">
+        <div>
+          <label class="block text-slate-400 mb-1">Display Name / Hostname *</label>
+          <input type="text" id="form-dev-name" required placeholder="e.g. SCADA-PLC-04" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-1.5 text-slate-200 focus:outline-none focus:border-cyan-500">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 mb-1">Primary IP Address *</label>
+            <input type="text" id="form-dev-ip" required placeholder="192.168.1.150" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-1.5 text-slate-200 focus:outline-none focus:border-cyan-500">
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">MAC Address (Hardware Key) *</label>
+            <input type="text" id="form-dev-mac" required placeholder="XX:XX:XX:XX:XX:XX" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-1.5 text-slate-200 focus:outline-none focus:border-cyan-500">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 mb-1">Device Classification *</label>
+            <select id="form-dev-type" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-1.5 text-slate-200 focus:outline-none focus:border-cyan-500">
+              <option value="PC">PC / Workstation</option>
+              <option value="SERVER">Server</option>
+              <option value="ACCESS_SWITCH">Access Switch</option>
+              <option value="AGGREGATE_SWITCH">Aggregate Switch</option>
+              <option value="CORE_ROUTER">Core Router</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Operational Group</label>
+            <select id="form-dev-group" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-1.5 text-slate-200 focus:outline-none focus:border-cyan-500">
+              <option value="1">Unassigned Group</option>
+              <option value="2">Operations</option>
+              <option value="3">Operations / Assembly Line A</option>
+              <option value="4">Engineering SCADA</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 mb-1">Hardware Vendor (vendor)</label>
+            <input type="text" id="form-dev-vendor" placeholder="e.g. Cisco / Siemens" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-1.5 text-slate-200 focus:outline-none focus:border-cyan-500">
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Hardware Model (model)</label>
+            <input type="text" id="form-dev-model" placeholder="e.g. Catalyst 9300" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-1.5 text-slate-200 focus:outline-none focus:border-cyan-500">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 mb-1">Parent Switch (parent_device_id)</label>
+            <select id="form-dev-parent" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-1.5 text-slate-200 focus:outline-none focus:border-cyan-500">
+              <option value="ACCESS-SW-A">ACCESS-SW-A (192.168.1.10)</option>
+              <option value="ACCESS-SW-B">ACCESS-SW-B (192.168.1.20)</option>
+              <option value="CORE-SWITCH-01">CORE-SWITCH-01 (192.168.1.2)</option>
+              <option value="CORE-ROUTER-01">CORE-ROUTER-01 (192.168.1.1)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Physical Zone (zone)</label>
+            <input type="text" id="form-dev-zone" placeholder="e.g. Floor 1 Machine Bay" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-1.5 text-slate-200 focus:outline-none focus:border-cyan-500">
+          </div>
+        </div>
+
+        <div class="flex items-center space-x-2 pt-1">
+          <input type="checkbox" id="form-dev-monitored" checked class="rounded border-slate-800 text-cyan-500 focus:ring-0">
+          <label for="form-dev-monitored" class="text-slate-300">Enable Active Telemetry Monitoring (is_monitored)</label>
+        </div>
+
+        <div class="pt-3 border-t border-slate-800 flex justify-end space-x-2">
+          <button type="button" onclick="closeModal('modal-create-device')" class="px-4 py-1.5 rounded bg-slate-800 text-slate-300 hover:text-white">Cancel</button>
+          <button type="submit" class="px-4 py-1.5 rounded bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-bold shadow-md">Provision Device</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL 2: EDIT DEVICE DIALOG (STRICT SCHEMA ALIGNMENT) -->
+  <!-- ========================================================================= -->
+  <div id="modal-edit-device" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="w-full max-w-lg bg-[#080e1c] border border-cyan-800 rounded-xl p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="font-mono font-bold text-white text-sm flex items-center space-x-2">
+          <span>EDIT DEVICE CONFIGURATION</span>
+        </h3>
+        <button onclick="closeModal('modal-edit-device')" class="text-slate-400 hover:text-white">&times;</button>
+      </div>
+
+      <form onsubmit="handleSaveEdit(event)" class="space-y-3 text-xs font-mono">
+        <div>
+          <label class="block text-slate-400 mb-1">Display Name (display_name) *</label>
+          <input type="text" id="edit-dev-name" required class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-1.5 text-slate-200">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 mb-1">Mutable Primary IP (primary_ip) *</label>
+            <input type="text" id="edit-dev-ip" required class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-1.5 text-slate-200">
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">MAC Address (Immutable Key)</label>
+            <input type="text" id="edit-dev-mac" disabled class="w-full bg-slate-900 border border-slate-800 rounded px-3 py-1.5 text-slate-500 cursor-not-allowed">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 mb-1">Hardware Vendor (vendor)</label>
+            <input type="text" id="edit-dev-vendor" value="Siemens" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-1.5 text-slate-200">
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Hardware Model (model)</label>
+            <input type="text" id="edit-dev-model" value="S7-1500" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-1.5 text-slate-200">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 mb-1">Parent Switch (parent_device_id)</label>
+            <select id="edit-dev-parent" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-1.5 text-slate-200">
+              <option value="ACCESS-SW-A">ACCESS-SW-A (192.168.1.10)</option>
+              <option value="ACCESS-SW-B">ACCESS-SW-B (192.168.1.20)</option>
+              <option value="CORE-SWITCH-01">CORE-SWITCH-01 (192.168.1.2)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Physical Zone (zone)</label>
+            <input type="text" id="edit-dev-zone" value="Floor 1 Machine Bay" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-1.5 text-slate-200">
+          </div>
+        </div>
+
+        <div class="flex items-center space-x-2 pt-1">
+          <input type="checkbox" id="edit-dev-monitored" checked class="rounded border-slate-800 text-cyan-500 focus:ring-0">
+          <label for="edit-dev-monitored" class="text-slate-300">Enable Active Telemetry Monitoring (is_monitored)</label>
+        </div>
+
+        <div class="pt-3 border-t border-slate-800 flex justify-end space-x-2">
+          <button type="button" onclick="closeModal('modal-edit-device')" class="px-4 py-1.5 rounded bg-slate-800 text-slate-300">Cancel</button>
+          <button type="submit" class="px-4 py-1.5 rounded bg-cyan-600 text-white font-bold">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- MODAL 3: DELETE CONFIRMATION DIALOG -->
+  <!-- ========================================================================= -->
+  <div id="modal-delete-confirm" class="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="w-full max-w-md bg-[#0d070b] border border-rose-900 rounded-xl p-6 shadow-2xl space-y-4">
+      <div class="flex items-center space-x-3 text-rose-500">
+        <div class="w-8 h-8 rounded-full bg-rose-950/80 border border-rose-800 flex items-center justify-center font-bold text-sm">⚠️</div>
+        <h3 class="font-mono font-bold text-white text-sm">CONFIRM DEVICE DELETION</h3>
+      </div>
+      <p class="text-xs font-mono text-slate-300 leading-relaxed">
+        Are you sure you want to delete <strong id="delete-dev-target" class="text-rose-400">HISTORIAN-DB</strong>?
+        <br><br>
+        <span class="text-slate-400">Orphan Safe Guarantee: Any downstream child devices will become root orphans (`parent_device_id = NULL`) rather than being deleted.</span>
+      </p>
+      <div class="pt-3 border-t border-slate-800 flex justify-end space-x-2 text-xs font-mono">
+        <button onclick="closeModal('modal-delete-confirm')" class="px-4 py-1.5 rounded bg-slate-800 text-slate-300 hover:text-white">Cancel</button>
+        <button onclick="confirmDeletion()" class="px-4 py-1.5 rounded bg-rose-600 hover:bg-rose-500 text-white font-bold shadow-lg shadow-rose-600/30">Delete Permanently</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT CONTROLLERS -->
+  <script>
+    let isCascading = false;
+    let currentDeleteName = '';
+
+    function navigateTo(viewId) {
+      // Hide all main views
+      const views = ['view-dashboard', 'view-devices-table', 'view-sites-table', 'view-groups-table', 'view-staging-table', 'view-audit-table'];
+      views.forEach(v => {
+        const el = document.getElementById(v);
+        if (el) el.classList.add('hidden');
+      });
+
+      // Show selected view
+      const target = document.getElementById(viewId);
+      if (target) target.classList.remove('hidden');
+
+      // Update active nav styling
+      const navIds = ['nav-dashboard', 'nav-devices-table', 'nav-sites-table', 'nav-groups-table', 'nav-staging-table', 'nav-audit-table'];
+      navIds.forEach(n => {
+        const btn = document.getElementById(n);
+        if (btn) {
+          btn.className = "w-full flex items-center justify-between px-3 py-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-900 transition-all";
+        }
+      });
+      const activeNav = document.getElementById(viewId.replace('view-', 'nav-'));
+      if (activeNav) {
+        activeNav.className = "w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-mono font-medium transition-all bg-cyan-950/80 border border-cyan-800/80 text-cyan-200";
+      }
+    }
+
+    function switchCanvasTab(tab) {
+      if (tab === 'tree') {
+        document.getElementById('canvas-tab-tree').classList.remove('hidden');
+        document.getElementById('canvas-tab-physical').classList.add('hidden');
+        document.getElementById('tab-canvas-tree').className = "px-4 py-1.5 rounded-lg text-xs font-mono font-bold transition-all bg-cyan-600 text-white shadow-md flex items-center space-x-1.5";
+        document.getElementById('tab-canvas-physical').className = "px-4 py-1.5 rounded-lg text-xs font-mono font-medium transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 flex items-center space-x-1.5";
+      } else {
+        document.getElementById('canvas-tab-tree').classList.add('hidden');
+        document.getElementById('canvas-tab-physical').classList.remove('hidden');
+        document.getElementById('tab-canvas-tree').className = "px-4 py-1.5 rounded-lg text-xs font-mono font-medium transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 flex items-center space-x-1.5";
+        document.getElementById('tab-canvas-physical').className = "px-4 py-1.5 rounded-lg text-xs font-mono font-bold transition-all bg-cyan-600 text-white shadow-md flex items-center space-x-1.5";
+      }
+    }
+
+    function openDeviceInspector(ip, name, type, mac, rtt, loss, ntp, group, status, cpu, ram) {
+      document.getElementById('inspect-title').innerText = name;
+      document.getElementById('inspect-ip-addr').innerText = ip;
+      document.getElementById('inspect-dev-type').innerText = type;
+      document.getElementById('inspect-mac-val').innerText = mac;
+      document.getElementById('inspect-rtt-val').innerText = rtt;
+      document.getElementById('inspect-loss-val').innerText = loss;
+      document.getElementById('inspect-ntp-val').innerText = ntp;
+      document.getElementById('inspect-group-val').innerText = group;
+
+      document.getElementById('inspect-cpu-text').innerText = `${cpu}%`;
+      document.getElementById('inspect-cpu-bar').style.width = `${cpu}%`;
+      document.getElementById('inspect-ram-text').innerText = `${ram}%`;
+      document.getElementById('inspect-ram-bar').style.width = `${ram}%`;
+    }
+
+    function toggleCascadeFailureSimulation() {
+      isCascading = !isCascading;
+      const rectA = document.getElementById('rect-access-a');
+      const dotA = document.getElementById('dot-access-a');
+      const trunkLine = document.getElementById('cable-access-a-trunk');
+      const childDots = document.querySelectorAll('.cascade-child-dot');
+      const btnLabel = document.getElementById('btn-cascade-label');
+
+      if (isCascading) {
+        // Switch A Fails
+        rectA.setAttribute('stroke', '#ef4444');
+        rectA.setAttribute('fill', '#450a0a');
+        dotA.setAttribute('fill', '#ef4444');
+        dotA.className.baseVal = "glow-crimson";
+        trunkLine.setAttribute('stroke', '#ef4444');
+
+        // All 8 vertical child endpoints are marked SUPPRESSED (amber) with zero synthetic pings
+        childDots.forEach(dot => {
+          dot.setAttribute('fill', '#f59e0b');
+          dot.className.baseVal = "glow-amber";
+        });
+
+        btnLabel.innerText = "Restore Access A (Recover)";
+      } else {
+        // Switch A Recovers
+        rectA.setAttribute('stroke', '#8b5cf6');
+        rectA.setAttribute('fill', '#090e1c');
+        dotA.setAttribute('fill', '#10b981');
+        dotA.className.baseVal = "glow-emerald";
+        trunkLine.setAttribute('stroke', '#475569');
+
+        childDots.forEach(dot => {
+          dot.setAttribute('fill', '#10b981');
+          dot.className.baseVal = "";
+        });
+
+        btnLabel.innerText = "Simulate Switch Outage";
+      }
+    }
+
+    function openModal(modalId) {
+      document.getElementById(modalId).classList.remove('hidden');
+    }
+
+    function closeModal(modalId) {
+      document.getElementById(modalId).classList.add('hidden');
+    }
+
+    function openEditDevice(ip, name, type, mac) {
+      document.getElementById('edit-dev-name').value = name;
+      document.getElementById('edit-dev-ip').value = ip;
+      document.getElementById('edit-dev-mac').value = mac;
+      openModal('modal-edit-device');
+    }
+
+    function openDeleteConfirm(name, ip) {
+      currentDeleteName = name;
+      document.getElementById('delete-dev-target').innerText = `${name} (${ip})`;
+      openModal('modal-delete-confirm');
+    }
+
+    function confirmDeletion() {
+      alert(`Device ${currentDeleteName} safely removed from 3NF database.`);
+      closeModal('modal-delete-confirm');
+    }
+
+    function handleCreateDevice(e) {
+      e.preventDefault();
+      const name = document.getElementById('form-dev-name').value;
+      const ip = document.getElementById('form-dev-ip').value;
+      const mac = document.getElementById('form-dev-mac').value;
+      const type = document.getElementById('form-dev-type').value;
+
+      const tbody = document.getElementById('devices-table-body');
+      const newRow = document.createElement('tr');
+      newRow.className = "hover:bg-slate-900/50 transition-colors";
+      newRow.innerHTML = `
+        <td class="p-3"><span class="px-2 py-0.5 rounded text-[10px] bg-slate-800 text-slate-400">UNKNOWN</span></td>
+        <td class="p-3 font-bold text-white">${name}</td>
+        <td class="p-3 text-cyan-300">${ip}</td>
+        <td class="p-3 text-slate-400">${mac}</td>
+        <td class="p-3">${type}</td>
+        <td class="p-3">Unassigned Group</td>
+        <td class="p-3 text-slate-400">ACCESS-SW-A</td>
+        <td class="p-3 text-right space-x-1">
+          <button onclick="openEditDevice('${ip}', '${name}', '${type}', '${mac}')" class="p-1.5 rounded hover:bg-slate-800 text-slate-300 hover:text-cyan-400"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg></button>
+          <button onclick="openDeleteConfirm('${name}', '${ip}')" class="p-1.5 rounded hover:bg-rose-950/60 text-slate-400 hover:text-rose-400"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
+        </td>
+      `;
+      tbody.prepend(newRow);
+      closeModal('modal-create-device');
+      alert(`Device ${name} provisioned! Starts in UNKNOWN reachability state.`);
+    }
+
+    function handleLoginSubmit(e) {
+      e.preventDefault();
+      const portal = document.getElementById('login-portal');
+      portal.classList.add('opacity-0', 'pointer-events-none');
+      setTimeout(() => {
+        portal.classList.add('hidden');
+      }, 500);
+    }
+
+    function handleLogout() {
+      const portal = document.getElementById('login-portal');
+      portal.classList.remove('hidden', 'opacity-0', 'pointer-events-none');
+    }
+
+    function handleSaveEdit(e) {
+      e.preventDefault();
+      closeModal('modal-edit-device');
+      alert('Device configuration updated successfully.');
+    }
+  </script>
+</body>
+</html>

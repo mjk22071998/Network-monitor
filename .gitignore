@@ -1,0 +1,58 @@
+# ==============================================================================
+# Network Observer — Root Git Ignore
+# ==============================================================================
+
+# C++ Build & Output Artifacts
+build/
+bin/
+out/
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.obj
+*.o
+*.exe
+*.pdb
+*.ilk
+*.idb
+*.exp
+*.lib
+*.dll
+
+# Visual Studio & IDE Directories
+.vs/
+*.vcxproj*
+*.sln.docstates
+.vscode/
+.idea/
+
+# Frontend / Node.js
+frontend/node_modules/
+frontend/dist/
+node_modules/
+dist/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment & Runtime Configurations
+.env
+.env.local
+.env.*.local
+*.env
+
+# Runtime Logs, Databases & Temporary Files
+*.log
+*.sqlite
+*.db
+tmp/
+temp/
+coverage/
+
+# OS Specific
+Thumbs.db
+Desktop.ini
+.DS_Store
