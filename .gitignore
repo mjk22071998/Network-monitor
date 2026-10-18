@@ -2,9 +2,12 @@
 # Network Observer — Root Git Ignore
 # ==============================================================================
 
-# C++ Build & Output Artifacts
+# .NET & C++ Build & Output Artifacts
+[Bb]in/
+[Oo]bj/
+**/[Bb]in/
+**/[Oo]bj/
 build/
-bin/
 out/
 CMakeCache.txt
 CMakeFiles/
