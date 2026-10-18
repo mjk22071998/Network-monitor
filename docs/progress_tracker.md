@@ -50,11 +50,11 @@
   - [x] Configure project references enforcing unidirectional dependency rules.
   - [x] Scaffold `/frontend` directory structure (`src/api`, `src/types`, `src/stores`, `src/features`, `src/components/common`).
   - *Verification Proof*: Executed `dotnet sln NetworkObserver.slnx list` (all 4 projects loaded) and `dotnet build` (`0 Warning(s), 0 Error(s)`). Directory layout verified.
-- [ ] **0.3 Minimal ASP.NET Core API Compilation & Health Check**:
-  - [ ] Install core NuGet packages (`Microsoft.EntityFrameworkCore`, `Npgsql.EntityFrameworkCore.PostgreSQL`).
-  - [ ] Configure minimal health check endpoint `GET /api/v1/health` returning `{"status": "UP", "version": "2.2"}`.
-  - [ ] Compile solution via `dotnet build`.
-  - *Verification Proof*: Run `dotnet run --project backend/src/NetworkObserver.Api` and execute `curl.exe http://localhost:5000/api/v1/health` verifying `200 OK` JSON response.
+- [x] **0.3 Minimal ASP.NET Core API Compilation & Health Check**:
+  - [x] Install core NuGet packages (`Npgsql.EntityFrameworkCore.PostgreSQL`, `Isopoh.Cryptography.Argon2`, `FluentValidation`, `Microsoft.EntityFrameworkCore.Design`).
+  - [x] Configure minimal health check endpoint `GET /api/v1/health` returning `{"status": "UP", "version": "2.2"}`.
+  - [x] Compile solution via `dotnet build` (`0 Warning(s), 0 Error(s)`).
+  - *Verification Proof*: Ran `dotnet run` on port 5000 and executed `curl.exe -i http://localhost:5000/api/v1/health` verifying `HTTP/1.1 200 OK` and `{"status":"UP","version":"2.2","timestamp":"..."}` response.
 - [ ] **0.4 Frontend Project Initialization (Vue 3 + Vite + Tailwind + Cytoscape + ECharts)**:
   - [ ] Initialize Vue 3 TypeScript project in `/frontend` via `npm.cmd`.
   - [ ] Install Tailwind CSS, `@tailwindcss/forms`, Lucide icons, Pinia, Cytoscape.js, and Apache ECharts.
