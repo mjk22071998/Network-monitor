@@ -102,9 +102,9 @@ flowchart TD
      * `device_types`: 1 (`CORE_ROUTER`), 2 (`AGGREGATE_SWITCH`), 3 (`ACCESS_SWITCH`), 4 (`SERVER`), 5 (`PC`).
      * `monitoring_config`: Singleton Row 1 (5s reachability, 30s health, 2000ms timeout, cascade suppression TRUE).
      * Initial Network Admin account with default Argon2id password hash.
-  5. Implement C++ `DatabasePool` class using `libpqxx`:
-     * Thread-safe connection pool with configurable min/max connections.
-     * Automatic startup migration checker (verifies database schema on boot).
+  5. Implement C# EF Core `NetworkObserverDbContext` with Fluent API mappings:
+     * Domain entity classes in `NetworkObserver.Domain` with zero external dependencies.
+     * Mappings in `NetworkObserver.Infrastructure` and database connectivity registration in `NetworkObserver.Api`.
 * **Deliverables**: Verified PostgreSQL database with 100% 3NF schema, declarative time-series partitions, and immutable triggers.
 
 ---

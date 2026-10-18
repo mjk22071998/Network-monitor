@@ -64,46 +64,52 @@
 ---
 
 ### Phase 1: PostgreSQL 18 Database Engine & 3NF Schema Initialization
-**Status:** `NOT STARTED`  
-**Roadmap Reference:** [`project_implementation_roadmap_and_phases.md` § Phase 1](file:///d:/FullStackProjects/Network%20monitor/project_implementation_roadmap_and_phases.md#phase-1-postgresql-18-database-engine--3nf-schema-initialization)  
-**Schema Reference:** [`database_schema_and_ingestion_specification.md` § 4](file:///d:/FullStackProjects/Network%20monitor/database_schema_and_ingestion_specification.md#L111)
+**Status:** `IN PROGRESS`  
+**Roadmap Reference:** [`project_implementation_roadmap_and_phases.md` § Phase 1](file:///d:/FullStackProjects/Network%20monitor/docs/project_implementation_roadmap_and_phases.md#phase-1-postgresql-18-database-engine--3nf-schema-initialization)  
+**Schema Reference:** [`database_schema_and_ingestion_specification.md` § 4](file:///d:/FullStackProjects/Network%20monitor/docs/database_schema_and_ingestion_specification.md#L111)
 
-- [ ] **1.1 Database Migration Scripts**:
-  - [ ] Write `001_initial_schema.sql` with 3NF DDL for all core tables.
-  - [ ] Implement declarative range partitioning for `reachability_samples` by `recorded_at`.
-  - [ ] Implement declarative range partitioning for `health_samples` by `recorded_at`.
-  - [ ] Create default partitions (`reachability_samples_default`, `health_samples_default`).
-- [ ] **1.2 Non-Repudiation Triggers**:
-  - [ ] Author `fn_audit_logs_immutable()` PL/pgSQL function.
-  - [ ] Attach `trg_audit_logs_no_update` and `trg_audit_logs_no_delete` triggers to `audit_logs`.
-- [ ] **1.3 Master Seed Data**:
-  - [ ] Pre-seed Site 1 (`Primary Site Enclave`).
-  - [ ] Pre-seed Group 1 (`Unassigned Group`).
-  - [ ] Pre-seed Roles (1: `NETWORK_ADMIN`, 2: `NETWORK_ENGINEER`, 3: `IT_SUPPORT`).
-  - [ ] Pre-seed Device Types (1: `CORE_ROUTER`, 2: `AGGREGATE_SWITCH`, 3: `ACCESS_SWITCH`, 4: `SERVER`, 5: `PC`).
-  - [ ] Pre-seed Monitoring Config singleton row 1.
-  - [ ] Pre-seed initial `admin` account with Argon2id hash.
-- [ ] **1.4 C++ Database Connection Pool (`libpqxx`)**:
-  - [ ] Implement thread-safe connection pool class `DatabasePool`.
-  - [ ] Implement automated startup migration verification routine.
+- [x] **1.1 Database Migration Scripts**:
+  - [x] Write `001_initial_schema.sql` with 3NF DDL for all core tables.
+  - [x] Implement declarative range partitioning for `reachability_samples` by `recorded_at`.
+  - [x] Implement declarative range partitioning for `health_samples` by `recorded_at`.
+  - [x] Create default partitions (`reachability_samples_default`, `health_samples_default`).
+  - *Verification Proof*: Executed `sql/001_initial_schema.sql` on PostgreSQL 18 (`network_observer`). Verified 18 tables and default partitions exist via `\d+ reachability_samples` and `\d+ health_samples`.
+- [x] **1.2 Non-Repudiation Triggers**:
+  - [x] Author `fn_audit_logs_immutable()` PL/pgSQL function.
+  - [x] Attach `trg_audit_logs_no_update` and `trg_audit_logs_no_delete` triggers to `audit_logs`.
+  - *Verification Proof*: Inserted row into `audit_logs`; subsequent `UPDATE` and `DELETE` attempts were immediately aborted by PostgreSQL with: `ERROR: SECURITY VIOLATION: audit_logs records are immutable and cannot be updated or deleted.`
+- [x] **1.3 Master Seed Data**:
+  - [x] Pre-seed Site 1 (`Primary Site Enclave`, `SITE-01`).
+  - [x] Pre-seed Group 1 (`Unassigned Group`).
+  - [x] Pre-seed Roles (1: `NETWORK_ADMIN`, 2: `NETWORK_ENGINEER`, 3: `IT_SUPPORT`).
+  - [x] Pre-seed Device Types (1: `CORE_ROUTER`, 2: `AGGREGATE_SWITCH`, 3: `ACCESS_SWITCH`, 4: `SERVER`, 5: `PC`).
+  - [x] Pre-seed Monitoring Config singleton row 1 (5s reachability, 30s health, cascade suppression enabled).
+  - [x] Pre-seed Reachability & Health Status lookup tables.
+  - [x] Pre-seed initial `admin` account with Argon2id hash (`$argon2id$...`).
+  - *Verification Proof*: Executed multi-table SELECT query via `psql` validating row existence for all 8 seeded entities.
+- [ ] **1.4 C# EF Core Database Context & Entity Configurations**:
+  - [ ] Implement Domain entity classes in `NetworkObserver.Domain` with zero external dependencies.
+  - [ ] Implement `NetworkObserverDbContext` with Fluent API mappings in `NetworkObserver.Infrastructure`.
+  - [ ] Configure PostgreSQL connection string in `NetworkObserver.Api/appsettings.json`.
+  - [ ] Register DbContext in ASP.NET Core DI container and verify connection.
 
 ---
 
 ### Phase 2: Security, Argon2id & Session Authentication Engine
 **Status:** `NOT STARTED`  
-**Roadmap Reference:** [`project_implementation_roadmap_and_phases.md` § Phase 2](file:///d:/FullStackProjects/Network%20monitor/project_implementation_roadmap_and_phases.md#phase-2-security-argon2id--session-authentication-engine)  
-**Security Reference:** [`security_and_rbac_specification.md`](file:///d:/FullStackProjects/Network%20monitor/security_and_rbac_specification.md)
+**Roadmap Reference:** [`project_implementation_roadmap_and_phases.md` § Phase 2](file:///d:/FullStackProjects/Network%20monitor/docs/project_implementation_roadmap_and_phases.md#phase-2-security-argon2id--session-authentication-engine)  
+**Security Reference:** [`security_and_rbac_specification.md`](file:///d:/FullStackProjects/Network%20monitor/docs/security_and_rbac_specification.md)
 
 - [ ] **2.1 Argon2id Password Cryptography**:
-  - [ ] Implement Argon2id hashing wrapper with parameters: $m=64\text{MB}, t=3, p=4$.
-  - [ ] Implement constant-time password verification (`CRYPTO_MEMCMP`).
+  - [ ] Implement Argon2id hashing wrapper with parameters: $m=64\text{MB}, t=3, p=4$ using `Isopoh.Cryptography.Argon2`.
+  - [ ] Implement constant-time password verification (`CryptographicOperations.FixedTimeEquals`).
   - [ ] Implement dummy hashing pass on deactivated accounts (`is_active = false`).
 - [ ] **2.2 Cryptographic Session Manager**:
-  - [ ] Implement 256-bit CSPRNG token generator (`BCryptGenRandom`).
-  - [ ] Implement thread-safe in-memory session cache with `std::shared_mutex`.
+  - [ ] Implement 256-bit CSPRNG token generator (`RandomNumberGenerator`).
+  - [ ] Implement thread-safe in-memory session cache with `ConcurrentDictionary`.
   - [ ] Enforce 8-hour shift lifetime and 30-minute idle inactivity timeout.
   - [ ] Implement session revocation blacklist.
-- [ ] **2.3 Crow RBAC Guard Middleware**:
+- [ ] **2.3 ASP.NET Core RBAC Guard Middleware**:
   - [ ] Intercept requests; extract session from `observer_session` cookie or `Authorization: Bearer`.
   - [ ] Enforce route permissions per Master RBAC Matrix (`401` vs `403`).
 - [ ] **2.4 Authentication API Endpoints**:
