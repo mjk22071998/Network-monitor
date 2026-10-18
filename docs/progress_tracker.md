@@ -64,7 +64,7 @@
 ---
 
 ### Phase 1: PostgreSQL 18 Database Engine & 3NF Schema Initialization
-**Status:** `IN PROGRESS`  
+**Status:** `COMPLETE`  
 **Roadmap Reference:** [`project_implementation_roadmap_and_phases.md` § Phase 1](file:///d:/FullStackProjects/Network%20monitor/docs/project_implementation_roadmap_and_phases.md#phase-1-postgresql-18-database-engine--3nf-schema-initialization)  
 **Schema Reference:** [`database_schema_and_ingestion_specification.md` § 4](file:///d:/FullStackProjects/Network%20monitor/docs/database_schema_and_ingestion_specification.md#L111)
 
@@ -87,11 +87,12 @@
   - [x] Pre-seed Reachability & Health Status lookup tables.
   - [x] Pre-seed initial `admin` account with Argon2id hash (`$argon2id$...`).
   - *Verification Proof*: Executed multi-table SELECT query via `psql` validating row existence for all 8 seeded entities.
-- [ ] **1.4 C# EF Core Database Context & Entity Configurations**:
-  - [ ] Implement Domain entity classes in `NetworkObserver.Domain` with zero external dependencies.
-  - [ ] Implement `NetworkObserverDbContext` with Fluent API mappings in `NetworkObserver.Infrastructure`.
-  - [ ] Configure PostgreSQL connection string in `NetworkObserver.Api/appsettings.json`.
-  - [ ] Register DbContext in ASP.NET Core DI container and verify connection.
+- [x] **1.4 C# EF Core Database Context & Entity Configurations**:
+  - [x] Implement Domain entity classes in `NetworkObserver.Domain` with zero external dependencies.
+  - [x] Implement `NetworkObserverDbContext` with Fluent API mappings in `NetworkObserver.Infrastructure`.
+  - [x] Configure PostgreSQL connection string in `NetworkObserver.Api/appsettings.json`.
+  - [x] Register DbContext in ASP.NET Core DI container and verify connection.
+  - *Verification Proof*: Compiled entire 4-tier solution (`0 Warning(s), 0 Error(s)`). Booted Kestrel server on port 5000 and queried `GET /api/v1/health` via `curl.exe` returning `200 OK` with `{"status":"UP","database":{"isConnected":true,"databaseEngine":"PostgreSQL 18","siteCount":1,"groupCount":1,"deviceCount":0,"userCount":1,"queryLatencyMs":40}}`. Zero raw SQL queries; 100% type-safe EF Core LINQ.
 
 ---
 
