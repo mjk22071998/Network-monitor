@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/backend/" />
+  <Folder Name="/backend/src/">
+    <Project Path="backend/src/NetworkObserver.Api/NetworkObserver.Api.csproj" />
+    <Project Path="backend/src/NetworkObserver.Application/NetworkObserver.Application.csproj" />
+    <Project Path="backend/src/NetworkObserver.Domain/NetworkObserver.Domain.csproj" />
+    <Project Path="backend/src/NetworkObserver.Infrastructure/NetworkObserver.Infrastructure.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,15 @@
+D:\FullStackProjects\Network monitor\backend\src\NetworkObserver.Application\bin\Debug\net10.0\NetworkObserver.Application.deps.json
+D:\FullStackProjects\Network monitor\backend\src\NetworkObserver.Application\bin\Debug\net10.0\NetworkObserver.Application.dll
+D:\FullStackProjects\Network monitor\backend\src\NetworkObserver.Application\bin\Debug\net10.0\NetworkObserver.Application.pdb
+D:\FullStackProjects\Network monitor\backend\src\NetworkObserver.Application\bin\Debug\net10.0\NetworkObserver.Domain.dll
+D:\FullStackProjects\Network monitor\backend\src\NetworkObserver.Application\bin\Debug\net10.0\NetworkObserver.Domain.pdb
+D:\FullStackProjects\Network monitor\backend\src\NetworkObserver.Application\obj\Debug\net10.0\NetworkObserver.Application.csproj.AssemblyReference.cache
+D:\FullStackProjects\Network monitor\backend\src\NetworkObserver.Application\obj\Debug\net10.0\NetworkObserver.Application.GeneratedMSBuildEditorConfig.editorconfig
+D:\FullStackProjects\Network monitor\backend\src\NetworkObserver.Application\obj\Debug\net10.0\NetworkObserver.Application.AssemblyInfoInputs.cache
+D:\FullStackProjects\Network monitor\backend\src\NetworkObserver.Application\obj\Debug\net10.0\NetworkObserver.Application.AssemblyInfo.cs
+D:\FullStackProjects\Network monitor\backend\src\NetworkObserver.Application\obj\Debug\net10.0\NetworkObserver.Application.csproj.CoreCompileInputs.cache
+D:\FullStackProjects\Network monitor\backend\src\NetworkObserver.Application\obj\Debug\net10.0\NetworkO.C451F94F.Up2Date
+D:\FullStackProjects\Network monitor\backend\src\NetworkObserver.Application\obj\Debug\net10.0\NetworkObserver.Application.dll
+D:\FullStackProjects\Network monitor\backend\src\NetworkObserver.Application\obj\Debug\net10.0\refint\NetworkObserver.Application.dll
+D:\FullStackProjects\Network monitor\backend\src\NetworkObserver.Application\obj\Debug\net10.0\NetworkObserver.Application.pdb
+D:\FullStackProjects\Network monitor\backend\src\NetworkObserver.Application\obj\Debug\net10.0\ref\NetworkObserver.Application.dll

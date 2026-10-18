@@ -41,15 +41,15 @@
   - [x] Author root `.gitignore` (ignoring `build/`, `bin/`, `obj/`, `dist/`, `node_modules/`, `*.log`, `.env`).
   - [x] Stage and commit master specification suite and prototypes.
   - *Verification Proof*: Executed `git status` (clean tree) and `git log -1` (`71bda1e` — 11 files, 5804 insertions).
-- [ ] **0.2 .NET 8 4-Tier Solution & Directory Scaffolding**:
-  - [ ] Create root solution `NetworkObserver.sln` via `dotnet new sln`.
-  - [ ] Create `NetworkObserver.Api` (ASP.NET Core Web API).
-  - [ ] Create `NetworkObserver.Application` (Class Library).
-  - [ ] Create `NetworkObserver.Domain` (Class Library).
-  - [ ] Create `NetworkObserver.Infrastructure` (Class Library).
-  - [ ] Configure project references enforcing unidirectional dependency rules.
-  - [ ] Scaffold `/frontend` directory structure (`src/api`, `src/types`, `src/stores`, `src/features`, `src/components/common`).
-  - *Verification Proof*: Run PowerShell `dotnet sln list` and `Get-ChildItem -Recurse -Directory` displaying complete scaffolded structure.
+- [x] **0.2 .NET 8 4-Tier Solution & Directory Scaffolding**:
+  - [x] Create root solution `NetworkObserver.slnx` via `dotnet new sln`.
+  - [x] Create `NetworkObserver.Api` (ASP.NET Core Web API with controllers).
+  - [x] Create `NetworkObserver.Application` (Class Library).
+  - [x] Create `NetworkObserver.Domain` (Class Library).
+  - [x] Create `NetworkObserver.Infrastructure` (Class Library).
+  - [x] Configure project references enforcing unidirectional dependency rules.
+  - [x] Scaffold `/frontend` directory structure (`src/api`, `src/types`, `src/stores`, `src/features`, `src/components/common`).
+  - *Verification Proof*: Executed `dotnet sln NetworkObserver.slnx list` (all 4 projects loaded) and `dotnet build` (`0 Warning(s), 0 Error(s)`). Directory layout verified.
 - [ ] **0.3 Minimal ASP.NET Core API Compilation & Health Check**:
   - [ ] Install core NuGet packages (`Microsoft.EntityFrameworkCore`, `Npgsql.EntityFrameworkCore.PostgreSQL`).
   - [ ] Configure minimal health check endpoint `GET /api/v1/health` returning `{"status": "UP", "version": "2.2"}`.
