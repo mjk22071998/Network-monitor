@@ -1,9 +1,9 @@
 # Network Observer — Living Progress Tracker & Implementation Checklist
-**Document Version:** 2.1  
+**Document Version:** 2.2  
 **Project:** Network Observer (Industrial LAN Telemetry & Topology Management Platform)  
 **Classification:** Restricted — Air-Gapped Industrial Enclave (SCADA / NOC Deployment)  
 **Location:** `d:\FullStackProjects\Network monitor`  
-**Last Updated:** 17 October 2026  
+**Last Updated:** 18 October 2026  
 **Related Master Roadmap:** [`project_implementation_roadmap_and_phases.md`](file:///d:/FullStackProjects/Network%20monitor/project_implementation_roadmap_and_phases.md)
 
 ---
@@ -13,13 +13,13 @@
 | Metric | Current Status | Notes |
 | :--- | :---: | :--- |
 | **Current Milestone** | **Milestone 1: Architectural Baseline & Scaffolding** | Specifications complete; ready for code scaffolding. |
-| **Active Phase** | **Phase 0: Workspace Scaffolding & Master Build Setup** | Next immediate action. |
-| **Specifications Status** | **100% COMPLETE & LOCKED** | All 6 master specification documents approved. |
+| **Active Phase** | **Phase 0: Workspace Scaffolding & Master Build Setup** | Ready to scaffold .NET 8 4-Tier solution & Vue 3. |
+| **Specifications Status** | **100% COMPLETE & LOCKED** | All 7 master specification documents approved. |
 | **Database Engine** | **PostgreSQL 16/17/18** | 3NF DDL, Range Partitioning, PL/pgSQL Triggers locked. |
-| **Backend Stack** | **C++20 with Crow API** | `libpqxx`, `Boost.Asio`, Native Raw Sockets locked. |
-| **Frontend Stack** | **Vue 3 + Vite + Tailwind CSS** | Pinia, fine-grained proxy reactivity, Cyber-Tactical locked. |
-| **Memory Architecture**| **Zero-RAM-Spike Streaming** | $< 15\text{ MB}$ RSS C++ streaming, $< 60\text{ MB}$ JS heap locked. |
-| **Overall Completion** | **15% (Phase 0 Scaffolding Ready)** | Baseline documentation & prototype complete. |
+| **Backend Stack** | **C# (.NET 8) Web API + EF Core** | 4-Tier Layered Architecture, Npgsql, Async Ping, Zero Raw SQL. |
+| **Frontend Stack** | **Vue 3 + Vite + Cytoscape.js + ECharts** | Pinia, fine-grained proxy reactivity, Cyber-Tactical theme. |
+| **Memory Architecture**| **60 MB – 100 MB Working Ceiling** | `markRaw()` on canvas, `shallowRef()` on telemetry batches. |
+| **Overall Completion** | **18% (Architecture Blueprint & Step 0.1 Locked)**| Specification suite harmonized; Git repo initialized. |
 
 ## 2. Mandatory Verification Protocol
 
@@ -33,29 +33,33 @@
 
 ### Phase 0: Workspace Scaffolding & Master Build Setup
 **Status:** `READY TO EXECUTE`  
-**Roadmap Reference:** [`project_implementation_roadmap_and_phases.md` § Phase 0](file:///d:/FullStackProjects/Network%20monitor/project_implementation_roadmap_and_phases.md#phase-0-workspace-scaffolding--master-build-pipeline)
+**Roadmap Reference:** [`project_implementation_roadmap_and_phases.md` § Phase 0](file:///d:/FullStackProjects/Network%20monitor/project_implementation_roadmap_and_phases.md#phase-0-workspace-scaffolding--master-build-pipeline)  
+**Architecture Reference:** [`software_architecture_and_libraries_specification.md`](file:///d:/FullStackProjects/Network%20monitor/software_architecture_and_libraries_specification.md)
 
-- [ ] **0.1 Git Repository Initialization & Baseline Commit**:
-  - [ ] Execute `git init` in `d:\FullStackProjects\Network monitor`.
-  - [ ] Author root `.gitignore` (ignoring `build/`, `bin/`, `dist/`, `node_modules/`, `*.log`, `.env`).
-  - [ ] Stage and commit master specification suite and prototypes.
-  - *Verification Proof*: Run `git status` (clean tree) and `git log -1` (shows initial commit with sha and files).
-- [ ] **0.2 Directory Tree Scaffolding**:
-  - [ ] Create `/backend` directory structure (`src/api`, `src/db`, `src/poller`, `src/security`, `include/`).
-  - [ ] Create `/frontend` directory structure (`src/components`, `src/stores`, `src/views`, `src/assets`).
-  - [ ] Create `/sql` directory for idempotent database migrations (`001_initial_schema.sql`).
-  - [ ] Create `/scripts` directory for developer build & run scripts.
-  - *Verification Proof*: Run PowerShell `Get-ChildItem -Recurse -Directory` displaying the complete scaffolded tree.
-- [ ] **0.3 CMake Master Configuration & Minimal C++20 Crow Compilation**:
-  - [ ] Author `/backend/CMakeLists.txt` targeting C++20 standard with MSVC / GCC compatibility.
-  - [ ] Configure header-only dependencies (`Crow`, `nlohmann/json`, `Boost.Asio`).
-  - [ ] Write minimal test server `main.cpp` listening on port `8443` returning `{"status": "UP", "version": "2.1"}` on `GET /api/v1/health`.
-  - *Verification Proof*: Compile binary with Visual Studio CMake, run it, and execute `curl.exe http://localhost:8443/api/v1/health` verifying `200 OK` JSON response.
-- [ ] **0.4 Frontend Project Initialization (Vue 3 + Vite + Tailwind)**:
+- [x] **0.1 Git Repository Initialization & Baseline Commit**:
+  - [x] Execute `git init` in `d:\FullStackProjects\Network monitor`.
+  - [x] Author root `.gitignore` (ignoring `build/`, `bin/`, `obj/`, `dist/`, `node_modules/`, `*.log`, `.env`).
+  - [x] Stage and commit master specification suite and prototypes.
+  - *Verification Proof*: Executed `git status` (clean tree) and `git log -1` (`71bda1e` — 11 files, 5804 insertions).
+- [ ] **0.2 .NET 8 4-Tier Solution & Directory Scaffolding**:
+  - [ ] Create root solution `NetworkObserver.sln` via `dotnet new sln`.
+  - [ ] Create `NetworkObserver.Api` (ASP.NET Core Web API).
+  - [ ] Create `NetworkObserver.Application` (Class Library).
+  - [ ] Create `NetworkObserver.Domain` (Class Library).
+  - [ ] Create `NetworkObserver.Infrastructure` (Class Library).
+  - [ ] Configure project references enforcing unidirectional dependency rules.
+  - [ ] Scaffold `/frontend` directory structure (`src/api`, `src/types`, `src/stores`, `src/features`, `src/components/common`).
+  - *Verification Proof*: Run PowerShell `dotnet sln list` and `Get-ChildItem -Recurse -Directory` displaying complete scaffolded structure.
+- [ ] **0.3 Minimal ASP.NET Core API Compilation & Health Check**:
+  - [ ] Install core NuGet packages (`Microsoft.EntityFrameworkCore`, `Npgsql.EntityFrameworkCore.PostgreSQL`).
+  - [ ] Configure minimal health check endpoint `GET /api/v1/health` returning `{"status": "UP", "version": "2.2"}`.
+  - [ ] Compile solution via `dotnet build`.
+  - *Verification Proof*: Run `dotnet run --project backend/src/NetworkObserver.Api` and execute `curl.exe http://localhost:5000/api/v1/health` verifying `200 OK` JSON response.
+- [ ] **0.4 Frontend Project Initialization (Vue 3 + Vite + Tailwind + Cytoscape + ECharts)**:
   - [ ] Initialize Vue 3 TypeScript project in `/frontend` via `npm.cmd`.
-  - [ ] Install Tailwind CSS, `@tailwindcss/forms`, Lucide icons, Pinia, and Vue Router.
-  - [ ] Configure `vite.config.ts` with API proxy (`/api` $\rightarrow$ `http://localhost:8443`).
-  - *Verification Proof*: Run `npm.cmd run build` (successful compilation into `/frontend/dist`) and test proxy connection to C++ backend.
+  - [ ] Install Tailwind CSS, `@tailwindcss/forms`, Lucide icons, Pinia, Cytoscape.js, and Apache ECharts.
+  - [ ] Configure `vite.config.ts` with API proxy (`/api` $\rightarrow$ `http://localhost:5000`).
+  - *Verification Proof*: Run `npm.cmd run build` (successful compilation into `/frontend/dist`) and test proxy connection to .NET backend.
 
 ---
 

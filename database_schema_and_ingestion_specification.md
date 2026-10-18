@@ -514,21 +514,20 @@ stateDiagram-v2
 
 ---
 
-## 6. Low-Memory Streaming Ingestion Architecture (C++ Chunking & PostgreSQL COPY Protocol)
+## 6. Memory-Efficient Streaming Ingestion Architecture (C# .NET 8, EF Core & Npgsql Bulk Protocol)
 
-To prevent Out-Of-Memory (OOM) conditions and memory fragmentation on industrial hosts when ingesting large inventory files, the system enforces a strict **zero-RAM-spike streaming pipeline**:
+To prevent Out-Of-Memory (OOM) conditions and memory fragmentation on industrial hosts when ingesting large inventory files, the system enforces a strict **memory-efficient streaming pipeline**:
 
-### 6.1 Backend Stream Ingestion Mandate (C++ & libpqxx)
-1. **Zero-Buffer Multipart Streaming**:
-   * The C++ web server (Crow) must not buffer uploaded file payloads completely in heap memory.
-   * Incoming files are spooled through a fixed-size **$64\text{ KB}$ ring buffer** in RAM.
-2. **Zero-Copy Lexical Tokenization**:
-   * Row and column boundaries are parsed using C++ `std::string_view` references pointing directly into the active $64\text{ KB}$ buffer chunk. Individual strings are not allocated on the heap for clean rows.
-3. **Direct PostgreSQL `COPY FROM STDIN` Ingestion (`libpqxx::stream_to`)**:
-   * Instead of generating thousands of `INSERT` statements or accumulating objects in a `std::vector`, the C++ engine streams rows directly into `staged_devices` via the PostgreSQL high-performance `COPY` protocol.
-   * PostgreSQL streams records straight to disk pages, bypassing SQL query compilation trees and transactional memory bloat.
+### 6.1 Backend Stream Ingestion Mandate (C# & Npgsql / EF Core)
+1. **Asynchronous Stream Spooling**:
+   * The ASP.NET Core web server streams incoming multipart file payloads via `HttpRequest.Body` directly through an asynchronous buffered reader (`FileStream` / `PipeReader`), avoiding loading the entire raw payload into unmanaged memory.
+2. **Streaming Lexical Tokenization**:
+   * CSV lines are parsed via zero-allocation `ReadOnlySpan<char>` or high-throughput streaming CSV readers (`CsvHelper` / custom parser) yielding asynchronous enumerables (`IAsyncEnumerable<StagedDevice>`).
+3. **High-Performance Direct PostgreSQL Binary Importer (`NpgsqlBinaryImporter`)**:
+   * For large imports, the C# engine utilizes Npgsql's high-speed binary `COPY` protocol (`BeginBinaryImportAsync("COPY staged_devices (...) FROM STDIN (FORMAT BINARY)")`) or batched EF Core staging with periodic context clearing (`ChangeTracker.Clear()`).
+   * Records are written directly to PostgreSQL disk pages without SQL query overhead.
 4. **Guaranteed Memory Bound**:
-   * Backend Resident Set Size (RSS) memory consumption during bulk file ingestion is bounded to **$< 15\text{ MB}$**, regardless of whether the uploaded file contains $50$ rows or $500,000$ rows.
+   * Backend Resident Set Size (RSS) memory consumption during bulk file ingestion is bounded comfortably within the **60 MB – 100 MB** working ceiling, regardless of whether the uploaded file contains $50$ rows or $500,000$ rows.
 5. **Cursor / Keyset Paginated Extraction**:
-   * The staging API endpoint (`GET /api/v1/ingest/batches/{id}/records`) strictly enforces pagination (`LIMIT 50 OFFSET X`).
+   * The staging API endpoint (`GET /api/v1/ingest/batches/{id}/records`) strictly enforces pagination (`Take(50).Skip(X)`).
    * The backend never serializes more than 50 staged rows into JSON per request.

@@ -1,11 +1,11 @@
 # Master Software Requirements Specification (SRS)
 ## System: Industrial LAN Monitoring and Management Platform (Network Observer)
 
-**Document Version:** 2.1 (Fully Harmonized Master Specification)  
-**Date:** 15 October 2026  
+**Document Version:** 2.2 (Fully Harmonized Master Specification — C# .NET 8 / Vue 3 / Cytoscape)  
+**Date:** 18 October 2026  
 **Status:** Approved Master Baseline  
 **Standard Compliance:** IEEE 830 / ISO/IEC/IEEE 29148  
-**Specification Boundary:** Strictly technology-independent; no implementation language, framework, runtime, or library is prescribed.
+**Specification Boundary:** Aligned with `software_architecture_and_libraries_specification.md` (C# .NET 8, EF Core, PostgreSQL 18, Vue 3, Cytoscape.js, Apache ECharts).
 
 ---
 
@@ -303,14 +303,19 @@ Transitive and partial dependencies are eliminated through strict 3NF normalizat
 * **NFR-03 (Rapid Historical Queries)**: Time-series sample queries across 1,000,000 samples return within 200 milliseconds.
 * **NFR-04 (ACID Transactional Integrity)**: All device commissioning, group renames, and batch staging commits execute within ACID-compliant database transactions.
 * **NFR-05 (Audit Logging)**: All configuration mutations, batch staging commits, and deletions are permanently recorded in `audit_logs`.
-* **NFR-06 (Zero-RAM-Spike Streaming Ingestion)**: Ingestion of bulk CSV/inventory files must not load entire payloads into heap memory. The C++ engine must use fixed 64KB ring buffers and stream directly into PostgreSQL via `libpqxx::stream_to` (binary `COPY`), maintaining $< 15\text{ MB}$ RSS memory usage.
-* **NFR-07 (Client-Side Memory Bounding)**: The Vue 3 client must maintain a flat memory footprint ($< 60\text{ MB}$ heap) using `shallowRef()` for tabular datasets, strict viewport pagination (50 rows default), and DOM recycling.
+* **NFR-06 (Zero-RAM-Spike Ingestion Pipeline)**: Ingestion of bulk CSV/inventory files must not load entire payloads into unmanaged heap memory. The C# backend engine must use batched streaming via Entity Framework Core and Npgsql direct bulk operations, maintaining backend RSS memory comfortably within a 60 MB – 100 MB working ceiling.
+* **NFR-07 (Client-Side Memory Bounding & Visual Virtualization)**: The Vue 3 client must maintain a flat memory footprint ($\le 100\text{ MB}$ JS heap, 60–100 MB working ceiling) using `markRaw()` on the Cytoscape.js canvas and Apache ECharts instances, `shallowRef()` for high-frequency telemetry batches, and strict viewport pagination (50 rows default).
 
 ---
 
 ## 8. Approved Implementation Tech Stack Baseline
 
 * **Database Engine**: **PostgreSQL 16+ / 17+ / 18+** (Level 3 Normalized 3NF Relational Architecture with declarative daily range partitioning on `reachability_samples` and `health_samples`, PL/pgSQL immutability triggers on `audit_logs`).
-* **Backend Engine**: **C++20 with Crow Microframework** (`Boost.Asio`, `libpqxx` connection pooling, `nlohmann/json`, `libsodium`/`argon2`, multithreaded native raw ICMP sockets).
-* **Frontend Application**: **Vue 3 + Vite + Tailwind CSS** (Pinia state management, fine-grained proxy reactivity, `shallowRef` tabular memory optimization, Cyber-Tactical theme).
-* **Unified Fullstack Runtime**: Crow serves both `/api/v1/...` REST endpoints and compiled production Vue 3 assets from a single port (`8443`), eliminating CORS and detached microservice management.
+* **Backend Architecture & Engine**: **C# (.NET 8 LTS) ASP.NET Core Web API** adhering to a **Strict 4-Tier Layered Architecture** (Presentation $\rightarrow$ Application $\rightarrow$ Domain $\rightarrow$ Infrastructure).
+  * **ORM & Persistence**: **Entity Framework Core 8 (EF Core)** + `Npgsql.EntityFrameworkCore.PostgreSQL` for 100% type-safe compile-time LINQ queries with **zero raw SQL**.
+  * **Telemetry Engines**: `System.Net.NetworkInformation.Ping` asynchronous batching + `IHostedService` / `BackgroundService` daemon workers.
+  * **Security**: Argon2id password hashing (`Isopoh.Cryptography.Argon2`), CSPRNG 256-bit session tokens.
+* **Frontend Architecture & Visuals**: **Vue 3 + Vite + TypeScript + Tailwind CSS** (Pinia state management, Cyber-Tactical dark theme).
+  * **Topology Visualization**: **Cytoscape.js** (`cytoscape` + `cytoscape-dagre`) multi-layer HTML5 Canvas engine with declarative CSS-like cyber stylesheets, `cy.batch()` polling updates, and graph traversal algorithms (`.successors()`) for downstream cascading alert suppression.
+  * **Telemetry & HUD Charts**: **Apache ECharts** (`echarts` + `vue-echarts`) for real-time latency sparklines, gauges, and historical telemetry charts.
+* **Unified Fullstack Monolith**: Single ASP.NET Core Kestrel host serving both `/api/v1/...` REST endpoints and compiled production Vue 3 `/dist` assets from port `8443` (or configurable), with zero external runtime dependencies.

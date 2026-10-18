@@ -8,11 +8,11 @@
 | Property | Value |
 | :--- | :--- |
 | **System Name** | Network Observer |
-| **Document Version** | 2.1 (Fully Harmonized Master Specification) |
+| **Document Version** | 2.2 (Fully Harmonized Master Specification — C# .NET 8 / Vue 3 / Cytoscape) |
 | **Status** | Approved Master Baseline |
 | **Classification** | Internal / Engineering & Client Reference |
 | **Target Runtime** | Isolated, Air-Gapped Local Area Networks (LAN) |
-| **Specification Boundary** | Strictly technology-independent; no implementation language, framework, runtime, or library is prescribed. |
+| **Specification Boundary** | Aligned with `software_architecture_and_libraries_specification.md` (C# .NET 8, EF Core, PostgreSQL 18, Vue 3, Cytoscape.js, ECharts). |
 
 > [!IMPORTANT]
 > **Domain Architecture Directives**  
@@ -336,8 +336,8 @@ The system exposes a technology-agnostic RESTful API versioned under `/api/v1/` 
 * **NFR-2.1 Scalable Network Polling**: The polling engine must monitor at least 1,000 devices at 5-second intervals with less than 5% average CPU load on a standard 4-core workstation.
 * **NFR-2.2 Sub-Second Dashboard Updates**: Polling the live status endpoint (`GET /api/v1/topology`) must respond in under 50 milliseconds for 1,000 active nodes.
 * **NFR-2.3 Fast Time-Series Queries**: Indexed historical queries across 1,000,000 samples must return within 200 milliseconds.
-* **NFR-2.4 Zero-RAM-Spike Streaming Pipeline**: Ingestion of bulk CSV/inventory files must not load entire payloads into RAM. The backend engine streams files via fixed 64KB ring buffers directly into PostgreSQL using `COPY FROM STDIN`, keeping backend RSS memory under 15MB.
-* **NFR-2.5 Frontend Memory Bounding & Virtualization**: The Vue 3 client must maintain a flat memory footprint ($< 60\text{ MB}$ JS heap) using `shallowRef()` for tabular datasets, strict viewport pagination (50 rows default), and DOM recycling.
+* **NFR-2.4 Zero-RAM-Spike Streaming Pipeline**: Ingestion of bulk CSV/inventory files must not load entire payloads into unmanaged RAM. The backend C# engine utilizes batch streaming via EF Core and Npgsql direct bulk operations, maintaining backend RSS memory comfortably within a 60 MB – 100 MB working ceiling.
+* **NFR-2.5 Frontend Memory Bounding & Visual Virtualization**: The Vue 3 client maintains a flat memory footprint ($\le 100\text{ MB}$ JS heap, 60–100 MB working ceiling) using `markRaw()` on the Cytoscape.js canvas and Apache ECharts instances, `shallowRef()` for high-frequency telemetry batches, and strict viewport pagination (50 rows default).
 
 ### NFR-3: Industrial Reliability & Transactional Integrity
 * **NFR-3.1 ACID Compliance**: All database mutations (device provisioning, group renames, batch commits) must be wrapped in atomic database transactions.

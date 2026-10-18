@@ -20,9 +20,9 @@ This document establishes the authoritative step-by-step implementation roadmap 
 
 ### Core Governance Directives
 1. **Document First, Code Second**: No code is written without a corresponding task defined in this roadmap and traced back to the master specification suite.
-2. **Proper Fullstack Monolith**: The application is structured and deployed as a cohesive single-server fullstack platform (C++ Crow backend serving the Vue 3 `/dist` web application on port `8443`).
-3. **Memory-First Engineering**: Every backend file operation and frontend data store must enforce the memory-bounding mandates ($< 15\text{ MB}$ RSS backend streaming, $< 60\text{ MB}$ JS heap frontend).
-4. **Zero Shell Execution**: All ICMP echo and NTP checks must operate via native OS sockets; subprocess spawning is strictly prohibited.
+2. **Proper Fullstack Monolith**: The application is structured and deployed as a cohesive single-server fullstack platform (C# .NET 8 ASP.NET Core backend serving the compiled Vue 3 `/dist` web application on port `8443`).
+3. **Memory-First Engineering**: Every backend file operation and frontend data store must enforce the memory-bounding mandates (60 MB – 100 MB working ceiling for backend RSS and frontend JS heap).
+4. **Zero Shell Execution**: All ICMP echo and NTP checks must operate via native asynchronous sockets (`System.Net.NetworkInformation.Ping`); subprocess spawning (`ping.exe`) is strictly prohibited.
 5. **Mandatory Step-by-Step Verification Protocol**: Every engineering step is atomic and verifiable. No task or phase is marked complete, and execution will not advance to the next step, until concrete verification proof (terminal commands, compilation logs, curl/HTTP responses, test suites, or UI checks) is executed, demonstrated, and approved by the user.
 
 ---
@@ -50,31 +50,36 @@ flowchart TD
 ---
 
 ### Phase 0: Workspace Scaffolding & Master Build Pipeline
-* **Goal**: Establish the unified fullstack directory structure, build scripts, and local developer environment.
+* **Goal**: Establish the unified fullstack directory structure, .NET 8 4-Tier solution, and local developer environment.
 * **Target Architecture**:
-  * Root CMake master build configuration.
-  * `/backend`: C++20 Crow server project (`CMakeLists.txt`, headers, source tree).
-  * `/frontend`: Vue 3 + Vite + Tailwind CSS project (`package.json`, `vite.config.ts`, `src/`).
-  * `.gitignore` configured to ignore build artifacts, CMake caches, node_modules, and local test databases.
+  * Root .NET Solution (`NetworkObserver.sln`).
+  * `/backend/src/NetworkObserver.Api`: ASP.NET Core Web API host, controllers, middleware, and Vue static file host.
+  * `/backend/src/NetworkObserver.Application`: Use cases, interfaces, DTOs, cascading suppression engine.
+  * `/backend/src/NetworkObserver.Domain`: Enterprise entities, enums, value objects, domain exceptions.
+  * `/backend/src/NetworkObserver.Infrastructure`: EF Core `DbContext`, Npgsql provider, background poller daemons, Argon2id security.
+  * `/frontend`: Vue 3 + Vite + TypeScript + Tailwind CSS project with Cytoscape.js and Apache ECharts (`package.json`, `vite.config.ts`, `src/`).
+  * `.gitignore` configured to ignore build artifacts (`bin/`, `obj/`, `dist/`, `node_modules/`, `*.local`).
 * **Key Steps**:
-  1. Initialize Git repository (`git init`) and commit baseline documentation.
-  2. Create comprehensive `.gitignore` for C++ (MSVC / CMake), Node/Vite (`dist`, `node_modules`), and PostgreSQL dumps.
-  3. Scaffold backend directories:
-     * `/backend/src/api`: Crow route controllers.
-     * `/backend/src/db`: `libpqxx` connection pool and query helpers.
-     * `/backend/src/poller`: Multithreaded ICMP/NTP socket engine.
-     * `/backend/src/security`: Argon2id hasher, CSPRNG session store, RBAC middleware.
+  1. Initialize Git repository (`git init`) and commit baseline documentation (Complete).
+  2. Create comprehensive root `.gitignore` for .NET (`bin/`, `obj/`), Node/Vite (`dist`, `node_modules`), and logs.
+  3. Scaffold backend .NET 8 solution and 4-tier projects:
+     * `dotnet new sln -n NetworkObserver`
+     * `dotnet new webapi -n NetworkObserver.Api -f net8.0`
+     * `dotnet new classlib -n NetworkObserver.Application -f net8.0`
+     * `dotnet new classlib -n NetworkObserver.Domain -f net8.0`
+     * `dotnet new classlib -n NetworkObserver.Infrastructure -f net8.0`
+     * Link project references enforcing the unidirectional dependency flow.
   4. Scaffold frontend directories:
-     * `/frontend/src/components`: UI components (HUD, Topology, Inspector, Tables).
-     * `/frontend/src/stores`: Pinia state stores with `shallowRef`.
-     * `/frontend/src/views`: Main dashboard views.
-  5. Configure CMake to download/integrate header-only dependencies:
-     * `Crow` (HTTP/REST framework).
-     * `nlohmann/json` (Modern C++ JSON).
-     * `Boost.Asio` (Asynchronous I/O core).
+     * `/frontend/src/api`: Typed Axios client and API modules.
+     * `/frontend/src/types`: Domain TypeScript interfaces matching C# DTOs.
+     * `/frontend/src/stores`: Pinia state stores with `markRaw` / `shallowRef`.
+     * `/frontend/src/features`: Feature views (topology canvas, inventory table, telemetry HUD, audit viewer).
+     * `/frontend/src/components/common`: Cyber-tactical design system primitives.
+  5. Install core NuGet dependencies:
+     * `Microsoft.EntityFrameworkCore`, `Npgsql.EntityFrameworkCore.PostgreSQL`, `Isopoh.Cryptography.Argon2`, `FluentValidation.AspNetCore`.
   6. Configure Vite dev server with proxying:
-     * Proxy `/api` requests to `http://localhost:8443`.
-* **Deliverables**: Working unified build system where `npm run dev` boots the frontend and CMake compiles the backend.
+     * Proxy `/api` requests to `https://localhost:8443` (or `http://localhost:5000`).
+* **Deliverables**: Working unified build system where `npm run dev` boots the frontend and `dotnet build` compiles the C# solution.
 
 ---
 
