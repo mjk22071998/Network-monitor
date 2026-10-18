@@ -26,6 +26,8 @@ Makefile
 # Visual Studio & IDE Directories
 .vs/
 *.vcxproj*
+*.csproj.user
+*.user
 *.sln.docstates
 .vscode/
 .idea/
