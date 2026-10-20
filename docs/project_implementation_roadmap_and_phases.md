@@ -21,7 +21,7 @@ This document establishes the authoritative step-by-step implementation roadmap 
 ### Core Governance Directives
 1. **Document First, Code Second**: No code is written without a corresponding task defined in this roadmap and traced back to the master specification suite.
 2. **Proper Fullstack Monolith**: The application is structured and deployed as a cohesive single-server fullstack platform (C# .NET 8 ASP.NET Core backend serving the compiled Vue 3 `/dist` web application on port `8443`).
-3. **Memory-First Engineering**: Every backend file operation and frontend data store must enforce the memory-bounding mandates (60 MB – 100 MB working ceiling for backend RSS and frontend JS heap).
+3. **Memory-First Engineering & Design Patterns**: All backend services and frontend stores enforce the memory-bounding mandates (up to a 500 MB total system RAM allowance) and strictly follow SOLID principles, Strategy, Factory, Singleton, and Repository patterns to guarantee modularity, maintainability, and clean cognitive flow.
 4. **Zero Shell Execution**: All ICMP echo and NTP checks must operate via native asynchronous sockets (`System.Net.NetworkInformation.Ping`); subprocess spawning (`ping.exe`) is strictly prohibited.
 5. **Mandatory Step-by-Step Verification Protocol**: Every engineering step is atomic and verifiable. No task or phase is marked complete, and execution will not advance to the next step, until concrete verification proof (terminal commands, compilation logs, curl/HTTP responses, test suites, or UI checks) is executed, demonstrated, and approved by the user.
 

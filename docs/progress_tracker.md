@@ -12,14 +12,14 @@
 
 | Metric | Current Status | Notes |
 | :--- | :---: | :--- |
-| **Current Milestone** | **Milestone 1: Architectural Baseline & Scaffolding** | Specifications complete; ready for code scaffolding. |
-| **Active Phase** | **Phase 1: PostgreSQL 18 Database Engine & 3NF Schema Initialization** | Phase 0 scaffolding complete & verified. |
-| **Specifications Status** | **100% COMPLETE & LOCKED** | All 7 master specification documents approved. |
-| **Database Engine** | **PostgreSQL 16/17/18** | 3NF DDL, Range Partitioning, PL/pgSQL Triggers locked. |
-| **Backend Stack** | **C# (.NET 8) Web API + EF Core** | 4-Tier Layered Architecture, Npgsql, Async Ping, Zero Raw SQL. |
+| **Current Milestone** | **Milestone 1: Architectural Baseline & Scaffolding** | Specifications complete; Phase 0 & 1 verified. |
+| **Active Phase** | **Phase 2: Security, Argon2id & Session Authentication Engine** | Phase 1 PostgreSQL & EF Core 10 verified. |
+| **Specifications Status** | **100% COMPLETE & LOCKED** | All master specification documents approved. |
+| **Database Engine** | **PostgreSQL 18** | 3NF DDL, Range Partitioning, PL/pgSQL Triggers verified. |
+| **Backend Stack** | **C# (.NET 10) Web API + EF Core 10** | 4-Tier Layered Architecture, Npgsql, Async Ping, Zero Raw SQL, SOLID & GoF Patterns. |
 | **Frontend Stack** | **Vue 3 + Vite + Cytoscape.js + ECharts** | Pinia, fine-grained proxy reactivity, Cyber-Tactical theme. |
-| **Memory Architecture**| **60 MB – 100 MB Working Ceiling** | `markRaw()` on canvas, `shallowRef()` on telemetry batches. |
-| **Overall Completion** | **25% (Phase 0 Complete & Verified)** | Ready for Phase 1 Database Schema DDL. |
+| **Memory Architecture**| **500 MB Total System RAM Allowance** | Explicit memory budget, `markRaw()` on canvas, `shallowRef()` on telemetry batches. |
+| **Overall Completion** | **35% (Phase 0 & 1 Complete & Verified)** | Ready for Phase 2 Security & Authentication. |
 
 ## 2. Mandatory Verification Protocol
 

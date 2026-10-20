@@ -12,7 +12,7 @@
 
 Network Observer is engineered as a **Fullstack Unified Monolith** operating in an air-gapped industrial environment. The system monitors up to 1,000 LAN assets with continuous ICMP telemetry (5-second polling tick) and host health interrogation (30-second polling tick).
 
-To satisfy the core non-negotiable requirements of **exceptional code readability, zero raw SQL queries, clean cognitive flow, and strict memory efficiency (60 MB – 100 MB working ceiling)**, the architecture transitions to a **Strict 4-Tier Layered Architecture** on the backend and a **Layered Feature-Driven Architecture** on the frontend.
+To satisfy the core non-negotiable requirements of **exceptional code readability, zero raw SQL queries, clean cognitive flow, strict SOLID design patterns, and a controlled 500 MB total RAM memory allowance**, the architecture transitions to a **Strict 4-Tier Layered Architecture** on the backend and a **Layered Feature-Driven Architecture** on the frontend.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
@@ -56,7 +56,7 @@ To satisfy the core non-negotiable requirements of **exceptional code readabilit
 
 ## 2. Definitive Library & Dependency Catalog
 
-All libraries have been evaluated against performance, memory footprint ($\le 100\text{ MB}$), zero raw SQL requirement, and suitability for air-gapped SCADA/NOC deployment.
+All libraries have been evaluated against performance, memory footprint ($\le 500\text{ MB}$ total system allowance), zero raw SQL requirement, clean maintainability, and suitability for air-gapped SCADA/NOC deployment.
 
 ### 2.1 Backend Technology Stack (C# / .NET 8)
 
@@ -186,7 +186,7 @@ frontend/src/
 
 ## 5. Inviolable Reactivity & Memory Guardrails
 
-To strictly honor the **60 MB – 100 MB memory boundary**:
+To comfortably operate within the **500 MB total RAM memory allowance** while maintaining high rendering performance and zero UI stutter:
 
 ### Rule 1: `markRaw()` on Visual Graph & Chart Instances
 Never allow Vue's reactive proxy engine to wrap third-party canvas instances:
@@ -270,9 +270,131 @@ dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=
 
 | Requirement | Architectural Mechanism | Verified In Spec |
 | :--- | :--- | :---: |
-| **Zero Raw SQL Queries** | EF Core 8 with compile-time LINQ queries & DbContext | Section 2.1, 3.4 |
+| **Zero Raw SQL Queries** | EF Core with compile-time LINQ queries & DbContext | Section 2.1, 3.4 |
 | **High Readability & Flow** | Strict 4-Tier Layered Architecture with dedicated Application Services | Section 3 |
-| **60 MB – 100 MB Memory Bound** | `markRaw()` on Cytoscape/ECharts, `shallowRef()` on telemetry batches, .NET 8 Server GC | Section 5 |
+| **SOLID Principles & Clean Code** | Explicit SRP, OCP, LSP, ISP, and DIP enforcement across all tiers | Section 8.1 |
+| **Design Patterns Catalog** | Factory, Strategy, Singleton, and Repository abstractions implemented | Section 8.2 |
+| **500 MB Total RAM Budget** | Multi-tier memory allocation: Kestrel, Argon2id, Caches, Ring Buffers, Canvas | Section 5, 8.3 |
 | **1,000-Node 60fps Topology** | Cytoscape.js multi-layer canvas with `cy.batch()` updates | Section 2.2, 5 |
 | **Downstream Alert Suppression** | Domain Service utilizing Cytoscape graph adjacency / EF Core hierarchy | Section 3.2 |
 | **Fullstack Monolith** | Single ASP.NET Core executable serving API + Vue 3 `/dist` on port 8443 | Section 6 |
+
+---
+
+## 8. Software Engineering Standards, SOLID Principles & Design Patterns Catalog
+
+To ensure the codebase remains maintainable, modular, and enterprise-grade over its operational lifecycle in air-gapped infrastructure, the system mandates the following software engineering practices.
+
+### 8.1 SOLID Principles Enforcement
+
+#### 1. Single Responsibility Principle (SRP)
+* Every class, service, and controller must have **only one reason to change**.
+* *Application*:
+  - `Argon2idPasswordHasher`: Solely responsible for password hashing and verification against RFC 9106 parameters.
+  - `SessionManager`: Solely responsible for issuing, caching, validating, and revoking active operator session tokens.
+  - `DeviceService`: Solely responsible for device domain operations and business rules (e.g. MAC address immutability).
+  - `HealthController` / `AuthController`: Solely responsible for HTTP translation, route negotiation, and mapping domain responses to `ApiResponse<T>`.
+
+#### 2. Open/Closed Principle (OCP)
+* Software entities must be **open for extension, but closed for modification**.
+* *Application*:
+  - Telemetry collection is designed around a polling strategy interface (`ITelemetryPollerStrategy`). Adding future polling protocols (e.g., Modbus, OPC-UA, or WMI) requires creating a new strategy class rather than modifying the polling engine daemon.
+  - Ingestion validators and export serializers implement strategy contracts (`IExportFormatterStrategy`), enabling new formats without touching core pipeline logic.
+
+#### 3. Liskov Substitution Principle (LSP)
+* Subtypes must be substitutable for their base types without altering system correctness.
+* *Application*:
+  - Any implementation of `IPasswordHasher`, `ISessionManager`, or `ITelemetryPoller` can replace standard implementations in unit tests (e.g., an in-memory test hasher or mock ping strategy) without unexpected side effects or broken preconditions.
+
+#### 4. Interface Segregation Principle (ISP)
+* Clients should not be forced to depend on interfaces they do not use.
+* *Application*:
+  - Interfaces are fine-grained and role-tailored (e.g., `ISessionReader` for middleware reading sessions vs `ISessionWriter` for login/logout operations; `ITopologyQueryService` for read-only tree retrieval vs `ITopologyCommandService` for link mutations).
+
+#### 5. Dependency Inversion Principle (DIP)
+* High-level business modules must not depend on low-level implementation details; both must depend on abstractions.
+* *Application*:
+  - The Presentation tier (`NetworkObserver.Api`) and Application tier (`NetworkObserver.Application`) have **zero references** to low-level persistence, database drivers, or socket APIs.
+  - The Application tier defines interfaces (`IDatabaseHealthService`, `ISessionManager`, `IPasswordHasher`), and the Infrastructure tier (`NetworkObserver.Infrastructure`) provides concrete implementations injected via standard Microsoft Dependency Injection.
+
+---
+
+### 8.2 Design Patterns Catalog
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                        GOF DESIGN PATTERNS                             │
+├───────────────────┬────────────────────────────────────────────────────┤
+│ Pattern           │ Concrete Implementation in Network Observer        │
+├───────────────────┼────────────────────────────────────────────────────┤
+│ 1. Strategy       │ - Telemetry Poller Strategies (ICMP, NTP, SNMP)    │
+│                   │ - Export Serialization (CSV, JSON, SQLite)         │
+│                   │ - Ingestion Validation Rules                       │
+├───────────────────┼────────────────────────────────────────────────────┤
+│ 2. Factory        │ - Cryptographic Token Factory (CSPRNG 256-bit)    │
+│                   │ - Telemetry Probe Request Factory                  │
+│                   │ - Entity / DTO Mapping Factories                   │
+├───────────────────┼────────────────────────────────────────────────────┤
+│ 3. Singleton      │ - In-Memory Session Cache (`ISessionManager`)       │
+│                   │ - Global Polling Configuration Cache               │
+│                   │ - In-Memory Topology Adjacency Graph Cache         │
+├───────────────────┼────────────────────────────────────────────────────┤
+│ 4. Repository     │ - Entity Data Access Abstractions (`IDeviceRepo`)  │
+│    / Query Spec   │ - Encapsulates EF Core LINQ queries from Services  │
+└───────────────────┴────────────────────────────────────────────────────┘
+```
+
+#### 1. Strategy Pattern
+* **Telemetry Polling Engine**:
+  ```csharp
+  public interface ITelemetryPollerStrategy
+  {
+      string ProtocolName { get; }
+      Task<TelemetryResult> ProbeAsync(Device device, CancellationToken ct);
+  }
+  ```
+  Concrete strategies: `IcmpPingPollerStrategy`, `NtpDriftPollerStrategy`, `HttpHostAgentPollerStrategy`.
+* **Export Serialization Engine**:
+  ```csharp
+  public interface IExportStrategy
+  {
+      string Format { get; }
+      Task<byte[]> ExportAsync(IEnumerable<Device> devices, CancellationToken ct);
+  }
+  ```
+  Concrete strategies: `CsvExportStrategy`, `JsonExportStrategy`, `SqliteExportStrategy`.
+
+#### 2. Factory Pattern
+* **Session Token Factory**:
+  ```csharp
+  public interface ISessionTokenFactory
+  {
+      SessionToken CreateToken(int userId, short roleId);
+  }
+  ```
+  Encapsulates 256-bit CSPRNG entropy extraction, prefix formatting (`obs_tok_...`), and cryptographically secure initialization.
+
+#### 3. Singleton Pattern
+* **Thread-Safe Session Cache (`ISessionManager`)**:
+  Registered as a Singleton service in DI. Uses thread-safe collections (`ConcurrentDictionary<string, SessionProfile>`) to validate incoming bearer tokens in sub-millisecond time without incurring database roundtrips.
+* **Topology Adjacency Graph**:
+  In-memory graph cache updated atomically on device/group mutations, providing $O(1)$ fast lookups for cascading alert suppression during network partitions.
+
+#### 4. Repository & Query Specification Pattern
+* Business services do not query `DbContext` directly; queries are abstracted behind clean Repository interfaces (e.g., `IDeviceRepository`, `IAuditLogRepository`), enabling unit testing, query reuse, and explicit separation of business logic from persistence mechanics.
+
+---
+
+### 8.3 500 MB Total RAM Budget Allocation Table
+
+With the relaxed **500 MB total RAM ceiling**, the system allocates memory across subsystems with generous headroom while strictly guarding against unconstrained leaks during long-running 8-hour operator shifts:
+
+| Subsystem / Component | Allocation Ceiling | Architectural Mechanism & Guardrails |
+| :--- | :---: | :--- |
+| **.NET Runtime & Kestrel Web Server** | $\approx 120\text{ MB}$ | Native thread pool, Kestrel HTTP pipeline, ASP.NET Core DI, Server GC with Gen2 compaction. |
+| **Argon2id Cryptographic Scratchpad** | $\approx 64\text{ MB}$ | High-security parameter $m=64\text{MB}$. Allocated strictly during active authentication attempts and immediately reclaimed. |
+| **In-Memory Caches (Singleton Services)** | $\approx 35\text{ MB}$ | ConcurrentDictionary session cache (max 250 active operators), topology adjacency graph, monitoring config singleton. |
+| **Telemetry Ingestion Ring Buffers** | $\approx 45\text{ MB}$ | Fixed-size ring buffers for 1-second micro-batching into PostgreSQL partitioned tables. |
+| **Frontend SPA JS Heap (Vue 3 Client)** | $\approx 110\text{ MB}$ | Cytoscape.js HTML5 canvas with `markRaw()`, Apache ECharts with `shallowRef()`, Pinia state stores. |
+| **Safety Headroom & Buffer** | $\approx 126\text{ MB}$ | Dynamic OS paging, bulk CSV parsing spikes, GC headroom before high-frequency collections. |
+| **TOTAL ALLOWABLE MEMORY** | **$\le 500\text{ MB}$** | **Guaranteed by architectural limits, fixed buffers, and memory pooling.** |
