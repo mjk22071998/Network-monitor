@@ -112,14 +112,17 @@
   - [x] Enforce 8-hour shift lifetime and 30-minute idle inactivity timeout.
   - [x] Implement session revocation and user-wide revocation.
   - *Verification Proof*: Authored `SessionManagementTests.cs`. Verified 256-bit entropy token generation, uniqueness, 8h absolute expiry, sliding idle window refresh, idle timeout eviction, single session revocation, and multi-session revocation for user ID. All 13 xUnit tests passed (`Total: 13, Passed: 13, Failed: 0`).
-- [ ] **2.3 ASP.NET Core RBAC Guard Middleware**:
-  - [ ] Intercept requests; extract session from `observer_session` cookie or `Authorization: Bearer`.
-  - [ ] Enforce route permissions per Master RBAC Matrix (`401` vs `403`).
-- [ ] **2.4 Authentication API Endpoints**:
-  - [ ] `POST /api/v1/auth/login`: Authenticate credentials, set Secure HttpOnly cookie, return numeric IDs.
-  - [ ] `POST /api/v1/auth/logout`: Revoke active session (`204 No Content`).
-  - [ ] `GET /api/v1/auth/me`: Return caller identity and role profile.
-  - [ ] `PUT /api/v1/auth/password`: Authenticated self-service password update.
+- [x] **2.3 ASP.NET Core RBAC Guard Middleware**:
+  - [x] Intercept requests; extract session from `observer_session` cookie or `Authorization: Bearer`.
+  - [x] Enforce route permissions per Master RBAC Matrix (`401 Unauthorized` vs `403 Forbidden`).
+  - [x] Attach authenticated `ClaimsPrincipal` with user identity, role, and session token.
+  - *Verification Proof*: Authored `AuthorizeRoleFilterTests.cs` and `SessionAuthenticationMiddleware.cs`. Verified unauthenticated requests return `401 Unauthorized` with standard error envelope; verified insufficient roles return `403 Forbidden` with standard error envelope; verified matching roles permit execution. All tests passed.
+- [x] **2.4 Authentication API Endpoints**:
+  - [x] `POST /api/v1/auth/login`: Authenticate credentials, set Secure HttpOnly cookie, return numeric IDs and 256-bit token.
+  - [x] `POST /api/v1/auth/logout`: Revoke active session and clear cookie (`204 No Content`).
+  - [x] `GET /api/v1/auth/me`: Return caller identity, role profile, and active status.
+  - [x] `PUT /api/v1/auth/password`: Authenticated self-service password update with complexity, reuse, and session invalidation guards.
+  - *Verification Proof*: Executed 26 automated unit/integration tests (`Total: 26, Passed: 26, Failed: 0`). Verified end-to-end against live Kestrel server via `curl.exe`: login sets cookie & token, `GET /auth/me` verifies identity, logout revokes session (`204`), subsequent access rejected with `401`, password update rejects weak/reused passwords and revokes active sessions.
 - [ ] **2.5 User Administration API (Admin Only)**:
   - [ ] `GET /api/v1/users`: List users with string `role` and `site_name`.
   - [ ] `POST /api/v1/users`: Pre-provision operator accounts (Zero self-registration).

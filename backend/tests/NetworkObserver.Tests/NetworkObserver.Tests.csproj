@@ -22,6 +22,7 @@
     <ProjectReference Include="..\..\src\NetworkObserver.Domain\NetworkObserver.Domain.csproj" />
     <ProjectReference Include="..\..\src\NetworkObserver.Application\NetworkObserver.Application.csproj" />
     <ProjectReference Include="..\..\src\NetworkObserver.Infrastructure\NetworkObserver.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\NetworkObserver.Api\NetworkObserver.Api.csproj" />
   </ItemGroup>
 
 </Project>
