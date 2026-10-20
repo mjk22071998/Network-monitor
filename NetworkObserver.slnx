@@ -6,4 +6,7 @@
     <Project Path="backend/src/NetworkObserver.Domain/NetworkObserver.Domain.csproj" />
     <Project Path="backend/src/NetworkObserver.Infrastructure/NetworkObserver.Infrastructure.csproj" />
   </Folder>
+  <Folder Name="/backend/tests/">
+    <Project Path="backend/tests/NetworkObserver.Tests/NetworkObserver.Tests.csproj" />
+  </Folder>
 </Solution>

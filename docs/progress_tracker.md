@@ -97,19 +97,21 @@
 ---
 
 ### Phase 2: Security, Argon2id & Session Authentication Engine
-**Status:** `NOT STARTED`  
+**Status:** `IN PROGRESS`  
 **Roadmap Reference:** [`project_implementation_roadmap_and_phases.md` § Phase 2](file:///d:/FullStackProjects/Network%20monitor/docs/project_implementation_roadmap_and_phases.md#phase-2-security-argon2id--session-authentication-engine)  
 **Security Reference:** [`security_and_rbac_specification.md`](file:///d:/FullStackProjects/Network%20monitor/docs/security_and_rbac_specification.md)
 
-- [ ] **2.1 Argon2id Password Cryptography**:
-  - [ ] Implement Argon2id hashing wrapper with parameters: $m=64\text{MB}, t=3, p=4$ using `Isopoh.Cryptography.Argon2`.
-  - [ ] Implement constant-time password verification (`CryptographicOperations.FixedTimeEquals`).
-  - [ ] Implement dummy hashing pass on deactivated accounts (`is_active = false`).
-- [ ] **2.2 Cryptographic Session Manager**:
-  - [ ] Implement 256-bit CSPRNG token generator (`RandomNumberGenerator`).
-  - [ ] Implement thread-safe in-memory session cache with `ConcurrentDictionary`.
-  - [ ] Enforce 8-hour shift lifetime and 30-minute idle inactivity timeout.
-  - [ ] Implement session revocation blacklist.
+- [x] **2.1 Argon2id Password Cryptography**:
+  - [x] Implement Argon2id hashing wrapper with parameters: $m=64\text{MB}, t=3, p=4$ using `Isopoh.Cryptography.Argon2`.
+  - [x] Implement constant-time password verification (`Argon2.Verify`).
+  - [x] Implement dummy hashing pass on deactivated accounts (`is_active = false`) to defeat timing side-channel attacks.
+  - *Verification Proof*: Authored `Argon2idPasswordHasherTests.cs`. Verified PHC format (`$argon2id$v=19$m=65536,t=3,p=4$`), verified constant-time verification passes on correct password and rejects wrong password, and verified live pre-seeded `admin` password against PostgreSQL (`Admin@NetworkObserver2026!`). All tests passed.
+- [x] **2.2 Cryptographic Session Manager**:
+  - [x] Implement 256-bit CSPRNG token generator (`ISessionTokenFactory` / `SessionTokenFactory` with `obs_tok_` prefix).
+  - [x] Implement thread-safe in-memory session cache with `ConcurrentDictionary` (`ISessionManager` / `SessionManager` Singleton).
+  - [x] Enforce 8-hour shift lifetime and 30-minute idle inactivity timeout.
+  - [x] Implement session revocation and user-wide revocation.
+  - *Verification Proof*: Authored `SessionManagementTests.cs`. Verified 256-bit entropy token generation, uniqueness, 8h absolute expiry, sliding idle window refresh, idle timeout eviction, single session revocation, and multi-session revocation for user ID. All 13 xUnit tests passed (`Total: 13, Passed: 13, Failed: 0`).
 - [ ] **2.3 ASP.NET Core RBAC Guard Middleware**:
   - [ ] Intercept requests; extract session from `observer_session` cookie or `Authorization: Bearer`.
   - [ ] Enforce route permissions per Master RBAC Matrix (`401` vs `403`).

@@ -2,7 +2,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using NetworkObserver.Application.Interfaces;
+using NetworkObserver.Application.Interfaces.Security;
 using NetworkObserver.Infrastructure.Persistence;
+using NetworkObserver.Infrastructure.Security;
 using NetworkObserver.Infrastructure.Services;
 
 namespace NetworkObserver.Infrastructure;
@@ -25,6 +27,11 @@ public static class DependencyInjection
             }));
 
         services.AddScoped<IDatabaseHealthService, DatabaseHealthService>();
+
+        // Security, Argon2id Cryptography, and Session Management
+        services.AddSingleton<IPasswordHasher, Argon2idPasswordHasher>();
+        services.AddSingleton<ISessionTokenFactory, SessionTokenFactory>();
+        services.AddSingleton<ISessionManager, SessionManager>();
 
         return services;
     }

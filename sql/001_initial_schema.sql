@@ -270,7 +270,7 @@ CREATE TABLE IF NOT EXISTS users (
 -- Pre-seed initial administrative account (admin / default Argon2id hash)
 -- Password: "Admin@NetworkObserver2026!"
 INSERT INTO users (user_id, site_id, username, password_hash, role_id, is_active)
-VALUES (1, 1, 'admin', '$argon2id$v=19$m=65536,t=3,p=4$vO7T0n0tZlP6yEa+W0qL0A$kC78vPZ35gV1s1fB0uK7n9tQ6dE3aL1zP5yE8vR4m0w', 1, TRUE)
+VALUES (1, 1, 'admin', '$argon2id$v=19$m=65536,t=3,p=4$0l6lAQpfBHCuwjnZvBYFwA$r7tpyUj2Tqun7gzxcnPy/5wIurBEMj7NnvzDZG9Pueg', 1, TRUE)
 ON CONFLICT (user_id) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS audit_logs (
