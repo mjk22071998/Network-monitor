@@ -1,7 +1,18 @@
 <script setup lang="ts">
 import { ref, onMounted, shallowRef } from 'vue';
-import { Activity, ShieldCheck, Server, Radio, Cpu, RefreshCw } from 'lucide-vue-next';
+import { 
+  Activity, 
+  ShieldCheck, 
+  Server, 
+  Radio, 
+  Cpu, 
+  RefreshCw, 
+  LogOut, 
+  UserCheck 
+} from 'lucide-vue-next';
 import axios from 'axios';
+import { useAuthStore } from './stores/auth';
+import LoginView from './features/auth/LoginView.vue';
 
 interface ApiHealthResponse {
   status: string;
@@ -9,12 +20,13 @@ interface ApiHealthResponse {
   timestamp: string;
 }
 
+const authStore = useAuthStore();
 const apiHealth = shallowRef<ApiHealthResponse | null>(null);
-const isLoading = ref<boolean>(false);
+const isLoadingHealth = ref<boolean>(false);
 const errorMsg = ref<string | null>(null);
 
 async function checkApiHealth() {
-  isLoading.value = true;
+  isLoadingHealth.value = true;
   errorMsg.value = null;
   try {
     const res = await axios.get<ApiHealthResponse>('/api/v1/health');
@@ -22,19 +34,39 @@ async function checkApiHealth() {
   } catch (err: any) {
     errorMsg.value = err.message || 'API connection failed';
   } finally {
-    isLoading.value = false;
+    isLoadingHealth.value = false;
   }
 }
 
-onMounted(() => {
-  checkApiHealth();
+async function handleLogout() {
+  await authStore.logout();
+}
+
+onMounted(async () => {
+  await authStore.checkAuth();
+  await checkApiHealth();
 });
 </script>
 
 <template>
-  <div class="min-h-screen bg-tactical-bg text-slate-100 flex flex-col font-sans">
+  <!-- Loading Gate before session resolution -->
+  <div v-if="!authStore.isInitialized" class="min-h-screen bg-tactical-bg flex items-center justify-center font-mono">
+    <div class="text-center space-y-3">
+      <Activity class="w-8 h-8 text-tactical-cyan mx-auto animate-spin" />
+      <div class="text-xs tracking-widest text-slate-400 uppercase">
+        INITIALIZING ENCLAVE SECURITY SUBSYSTEM...
+      </div>
+    </div>
+  </div>
+
+  <!-- Pre-Dashboard Cyber-Tactical Login Portal -->
+  <LoginView v-else-if="!authStore.isAuthenticated" />
+
+  <!-- Authenticated Operations Workspace -->
+  <div v-else class="min-h-screen bg-tactical-bg text-slate-100 flex flex-col font-sans select-none">
+    
     <!-- Top Tactical Navigation Bar -->
-    <header class="h-14 border-b border-tactical-border bg-tactical-surface px-6 flex items-center justify-between select-none">
+    <header class="h-14 border-b border-tactical-border bg-tactical-surface px-6 flex items-center justify-between">
       <div class="flex items-center space-x-3">
         <div class="w-8 h-8 rounded bg-tactical-panel border border-tactical-cyan/40 flex items-center justify-center text-tactical-cyan shadow-[0_0_12px_rgba(0,240,255,0.2)]">
           <Activity class="w-5 h-5 animate-pulse" />
@@ -50,8 +82,8 @@ onMounted(() => {
         </div>
       </div>
 
-      <!-- Center Status Pill -->
-      <div class="flex items-center space-x-6 text-xs font-mono">
+      <!-- Center Status & RBAC Pill -->
+      <div class="flex items-center space-x-5 text-xs font-mono">
         <div class="flex items-center space-x-2">
           <span class="relative flex h-2 w-2">
             <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-tactical-online opacity-75"></span>
@@ -59,22 +91,33 @@ onMounted(() => {
           </span>
           <span class="text-slate-300">TELEMETRY: ACTIVE (5s)</span>
         </div>
-        <div class="text-slate-500">|</div>
+        <div class="text-slate-600">|</div>
         <div class="flex items-center space-x-1.5 text-slate-300">
-          <ShieldCheck class="w-4 h-4 text-tactical-cyan" />
-          <span>RBAC: NETWORK_ADMIN</span>
+          <UserCheck class="w-4 h-4 text-tactical-cyan" />
+          <span class="text-slate-400 font-semibold">{{ authStore.username }}</span>
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-tactical-panel border border-tactical-cyan/40 text-tactical-cyan uppercase">
+            {{ authStore.roleName }}
+          </span>
         </div>
       </div>
 
-      <!-- Right Controls -->
+      <!-- Right Controls: Ping & Logout -->
       <div class="flex items-center space-x-3">
         <button
           @click="checkApiHealth"
-          :disabled="isLoading"
+          :disabled="isLoadingHealth"
           class="flex items-center space-x-1.5 px-3 py-1.5 rounded text-xs font-mono bg-tactical-panel border border-tactical-border hover:border-tactical-cyan text-slate-200 hover:text-tactical-cyan transition"
         >
-          <RefreshCw class="w-3.5 h-3.5" :class="{ 'animate-spin': isLoading }" />
+          <RefreshCw class="w-3.5 h-3.5" :class="{ 'animate-spin': isLoadingHealth }" />
           <span>PING API</span>
+        </button>
+
+        <button
+          @click="handleLogout"
+          class="flex items-center space-x-1.5 px-3 py-1.5 rounded text-xs font-mono bg-tactical-panel border border-tactical-border hover:border-tactical-alert/60 text-slate-300 hover:text-tactical-alert transition"
+        >
+          <LogOut class="w-3.5 h-3.5" />
+          <span>LOGOUT</span>
         </button>
       </div>
     </header>
@@ -93,7 +136,7 @@ onMounted(() => {
           >
             {{ apiHealth.status }}
           </span>
-          <span v-else-if="isLoading" class="text-2xl font-mono font-bold text-tactical-amber animate-pulse">
+          <span v-else-if="isLoadingHealth" class="text-2xl font-mono font-bold text-tactical-amber animate-pulse">
             CHECKING...
           </span>
           <span v-else class="text-2xl font-mono font-bold text-tactical-alert">
@@ -110,14 +153,15 @@ onMounted(() => {
 
       <div class="p-4 rounded-lg bg-tactical-surface border border-tactical-border">
         <div class="text-[11px] font-mono uppercase tracking-wider text-slate-400 flex items-center justify-between">
-          <span>Monitored Assets</span>
-          <Radio class="w-4 h-4 text-slate-400" />
+          <span>Active Session</span>
+          <ShieldCheck class="w-4 h-4 text-tactical-online" />
         </div>
-        <div class="mt-2 text-2xl font-mono font-bold text-slate-100">
-          1,000 <span class="text-xs font-normal text-slate-400 font-sans">nodes</span>
+        <div class="mt-2 text-2xl font-mono font-bold text-slate-100 flex items-baseline gap-2">
+          <span>{{ authStore.username }}</span>
+          <span class="text-xs font-normal text-tactical-cyan font-mono">ID: #{{ authStore.user?.user_id }}</span>
         </div>
         <div class="mt-1 text-[10px] font-mono text-slate-500">
-          ICMP Polling Cadence: 5,000 ms
+          Role: {{ authStore.roleName }} (Site #{{ authStore.user?.site_id }})
         </div>
       </div>
 
@@ -137,14 +181,14 @@ onMounted(() => {
 
       <div class="p-4 rounded-lg bg-tactical-surface border border-tactical-border">
         <div class="text-[11px] font-mono uppercase tracking-wider text-slate-400 flex items-center justify-between">
-          <span>Memory Boundary</span>
-          <ShieldCheck class="w-4 h-4 text-tactical-online" />
+          <span>RAM Allowance Budget</span>
+          <Activity class="w-4 h-4 text-tactical-cyan" />
         </div>
-        <div class="mt-2 text-2xl font-mono font-bold text-tactical-online">
-          &lt; 100 <span class="text-xs font-normal text-slate-400 font-sans">MB</span>
+        <div class="mt-2 text-2xl font-mono font-bold text-tactical-cyan">
+          500 <span class="text-xs font-normal text-slate-400 font-sans">MB</span>
         </div>
         <div class="mt-1 text-[10px] font-mono text-slate-500">
-          shallowRef() + Viewport Virtualization
+          64MB Argon2id + shallowRef() batches
         </div>
       </div>
     </section>
@@ -163,7 +207,7 @@ onMounted(() => {
             </span>
           </div>
           <div class="text-[10px] font-mono text-slate-500">
-            Ready for Stage 1 Node Population
+            Phase 3 Inventory Ready
           </div>
         </div>
         <div class="flex-1 flex items-center justify-center border border-dashed border-tactical-border/60 rounded mt-4 min-h-[350px] bg-tactical-bg/40">
