@@ -99,3 +99,15 @@ public class InvalidSiteException : DomainException
     public InvalidSiteException(int siteId) 
         : base($"Site ID {siteId} does not exist.", "INVALID_SITE") { }
 }
+
+public class SiteNotFoundException : DomainException
+{
+    public SiteNotFoundException(string message = "No active site configuration found in enclave database.") 
+        : base(message, "SITE_NOT_FOUND") { }
+}
+
+public class SiteValidationException : DomainException
+{
+    public SiteValidationException(string message) 
+        : base(message, "SITE_VALIDATION_ERROR") { }
+}

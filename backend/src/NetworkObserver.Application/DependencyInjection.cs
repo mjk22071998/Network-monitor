@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using NetworkObserver.Application.Interfaces.Security;
+using NetworkObserver.Application.Interfaces.Services;
 using NetworkObserver.Application.Services;
 
 namespace NetworkObserver.Application;
@@ -10,6 +11,7 @@ public static class DependencyInjection
     {
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IUserService, UserService>();
+        services.AddScoped<ISiteService, SiteService>();
         return services;
     }
 }

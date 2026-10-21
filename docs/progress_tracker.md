@@ -133,13 +133,14 @@
 ---
 
 ### Phase 3: Core Enclave Entities & Device Inventory CRUD
-**Status:** `NOT STARTED`  
+**Status:** `IN PROGRESS`  
 **Roadmap Reference:** [`project_implementation_roadmap_and_phases.md` § Phase 3](file:///d:/FullStackProjects/Network%20monitor/project_implementation_roadmap_and_phases.md#phase-3-core-enclave-entities--device-inventory-crud)  
 **API Reference:** [`api_contracts_specification.md` § 4, 5, 7](file:///d:/FullStackProjects/Network%20monitor/api_contracts_specification.md)
 
-- [ ] **3.1 Enclave Site API**:
-  - [ ] `GET /api/v1/site`: Return single site enclave data (`site_id = 1`).
-  - [ ] `PUT /api/v1/site`: Admin update of site metadata.
+- [x] **3.1 Enclave Site API**:
+  - [x] `GET /api/v1/site`: Return single site enclave data (`site_id = 1`) for all authenticated roles.
+  - [x] `PUT /api/v1/site`: Admin update of site metadata with strict boundary validation (name, code, desc).
+  - *Verification Proof*: Authored `SiteServiceTests.cs` (10 unit tests). Entire test suite expanded to 48 tests passing (`Total: 48, Passed: 48, Failed: 0`). Executed live verification against Kestrel server: admin authenticated `GET /api/v1/site` returned initial enclave (`SITE-01`), admin `PUT /api/v1/site` updated metadata (`Reactor Unit 4 Control Facility`, `FAC-R4-SCADA`), unauthenticated requests were rejected with `401 Unauthorized`, and engineer role `PUT` requests were rejected with `403 Forbidden`. Persistence in PostgreSQL 18 verified.
 - [ ] **3.2 Nested Group Hierarchy API**:
   - [ ] `GET /api/v1/groups`: Nested recursive tree with **`children: [...]`** attribute.
   - [ ] `POST /api/v1/groups`: Create new group/subgroup.

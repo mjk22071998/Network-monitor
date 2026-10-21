@@ -229,17 +229,33 @@ public class UserServiceTests
 /// </summary>
 internal class InMemorySiteRepository : ISiteRepository
 {
-    private readonly List<Site> _sites = new();
+    private readonly List<NetworkObserver.Domain.Entities.Site> _sites = new();
 
-    public void AddSync(Site site) => _sites.Add(site);
+    public void AddSync(NetworkObserver.Domain.Entities.Site site) => _sites.Add(site);
 
-    public Task<Site?> GetByIdAsync(int siteId, CancellationToken ct = default)
+    public Task<NetworkObserver.Domain.Entities.Site?> GetByIdAsync(int siteId, CancellationToken ct = default)
     {
         return Task.FromResult(_sites.FirstOrDefault(s => s.SiteId == siteId));
+    }
+
+    public Task<NetworkObserver.Domain.Entities.Site?> GetActiveSiteAsync(CancellationToken ct = default)
+    {
+        return Task.FromResult(_sites.FirstOrDefault(s => s.SiteId == 1) ?? _sites.FirstOrDefault());
     }
 
     public Task<bool> ExistsAsync(int siteId, CancellationToken ct = default)
     {
         return Task.FromResult(_sites.Any(s => s.SiteId == siteId));
+    }
+
+    public Task UpdateAsync(NetworkObserver.Domain.Entities.Site site, CancellationToken ct = default)
+    {
+        var existing = _sites.FirstOrDefault(s => s.SiteId == site.SiteId);
+        if (existing != null)
+        {
+            _sites.Remove(existing);
+        }
+        _sites.Add(site);
+        return Task.CompletedTask;
     }
 }
