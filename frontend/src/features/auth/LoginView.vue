@@ -1,11 +1,25 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { ShieldCheck, Lock, User, Activity, AlertCircle, ArrowRight } from 'lucide-vue-next';
+import { 
+  ShieldCheck, 
+  Lock, 
+  User, 
+  Activity, 
+  AlertCircle, 
+  ArrowRight,
+  Eye,
+  EyeOff
+} from 'lucide-vue-next';
 import { useAuthStore } from '../../stores/auth';
 
 const authStore = useAuthStore();
 const username = ref<string>('admin');
 const password = ref<string>('Admin@NetworkObserver2026!');
+const showPassword = ref<boolean>(false);
+
+function togglePasswordVisibility() {
+  showPassword.value = !showPassword.value;
+}
 
 async function handleLogin() {
   if (!username.value || !password.value) return;
@@ -70,18 +84,32 @@ async function handleLogin() {
         </div>
 
         <div>
-          <label class="block text-slate-400 mb-1.5 uppercase tracking-wider text-[10px] font-bold flex items-center gap-1.5">
-            <Lock class="w-3.5 h-3.5 text-tactical-cyan" />
-            <span>Enclave Passphrase</span>
+          <label class="block text-slate-400 mb-1.5 uppercase tracking-wider text-[10px] font-bold flex items-center justify-between">
+            <span class="flex items-center gap-1.5">
+              <Lock class="w-3.5 h-3.5 text-tactical-cyan" />
+              <span>Enclave Passphrase</span>
+            </span>
+            <span class="text-[9px] text-slate-500 font-normal">Argon2id Protected</span>
           </label>
-          <input
-            v-model="password"
-            type="password"
-            required
-            autocomplete="current-password"
-            placeholder="••••••••••••"
-            class="w-full bg-tactical-panel border border-tactical-border rounded-lg px-3.5 py-2.5 text-slate-200 focus:outline-none focus:border-tactical-cyan focus:ring-1 focus:ring-tactical-cyan font-mono transition"
-          />
+          <div class="relative">
+            <input
+              v-model="password"
+              :type="showPassword ? 'text' : 'password'"
+              required
+              autocomplete="current-password"
+              placeholder="••••••••••••"
+              class="w-full bg-tactical-panel border border-tactical-border rounded-lg pl-3.5 pr-10 py-2.5 text-slate-200 focus:outline-none focus:border-tactical-cyan focus:ring-1 focus:ring-tactical-cyan font-mono transition"
+            />
+            <button
+              type="button"
+              @click="togglePasswordVisibility"
+              class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-tactical-cyan p-1 rounded focus:outline-none transition"
+              :title="showPassword ? 'Hide passphrase' : 'Show passphrase'"
+            >
+              <EyeOff v-if="showPassword" class="w-4 h-4" />
+              <Eye v-else class="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
         <!-- Target Enclave Badge -->
