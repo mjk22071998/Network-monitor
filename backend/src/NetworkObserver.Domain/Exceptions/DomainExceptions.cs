@@ -111,3 +111,33 @@ public class SiteValidationException : DomainException
     public SiteValidationException(string message) 
         : base(message, "SITE_VALIDATION_ERROR") { }
 }
+
+public class GroupNotFoundException : DomainException
+{
+    public GroupNotFoundException(int groupId) 
+        : base($"Group with ID {groupId} was not found.", "GROUP_NOT_FOUND") { }
+}
+
+public class InvalidParentGroupException : DomainException
+{
+    public InvalidParentGroupException(int parentGroupId) 
+        : base($"Parent group with ID {parentGroupId} does not exist.", "INVALID_PARENT_GROUP") { }
+}
+
+public class CircularGroupHierarchyException : DomainException
+{
+    public CircularGroupHierarchyException(string message = "Cannot reparent group: cyclic parent-child hierarchy detected.") 
+        : base(message, "CIRCULAR_HIERARCHY") { }
+}
+
+public class ProtectedGroupException : DomainException
+{
+    public ProtectedGroupException(string message = "System root Group 1 (Unassigned Group) is protected and cannot be deleted or modified.") 
+        : base(message, "CANNOT_MODIFY_ROOT_GROUP") { }
+}
+
+public class GroupValidationException : DomainException
+{
+    public GroupValidationException(string message) 
+        : base(message, "GROUP_VALIDATION_ERROR") { }
+}

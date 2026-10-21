@@ -141,11 +141,12 @@
   - [x] `GET /api/v1/site`: Return single site enclave data (`site_id = 1`) for all authenticated roles.
   - [x] `PUT /api/v1/site`: Admin update of site metadata with strict boundary validation (name, code, desc).
   - *Verification Proof*: Authored `SiteServiceTests.cs` (10 unit tests). Entire test suite expanded to 48 tests passing (`Total: 48, Passed: 48, Failed: 0`). Executed live verification against Kestrel server: admin authenticated `GET /api/v1/site` returned initial enclave (`SITE-01`), admin `PUT /api/v1/site` updated metadata (`Reactor Unit 4 Control Facility`, `FAC-R4-SCADA`), unauthenticated requests were rejected with `401 Unauthorized`, and engineer role `PUT` requests were rejected with `403 Forbidden`. Persistence in PostgreSQL 18 verified.
-- [ ] **3.2 Nested Group Hierarchy API**:
-  - [ ] `GET /api/v1/groups`: Nested recursive tree with **`children: [...]`** attribute.
-  - [ ] `POST /api/v1/groups`: Create new group/subgroup.
-  - [ ] `PUT /api/v1/groups/{id}`: Rename/move group; protect root Group 1.
-  - [ ] `DELETE /api/v1/groups/{id}`: Fallback reassigning children to Group 1 (Unassigned).
+- [x] **3.2 Nested Group Hierarchy API**:
+  - [x] `GET /api/v1/groups`: Nested recursive tree with **`children: [...]`** attribute and direct device counts.
+  - [x] `POST /api/v1/groups`: Create new group/subgroup with parent validation.
+  - [x] `PUT /api/v1/groups/{id}`: Rename/move group; circular dependency prevention and Root Group 1 protection.
+  - [x] `DELETE /api/v1/groups/{id}`: Fallback reassigning member devices to Group 1 (Unassigned) and reparenting child subgroups.
+  - *Verification Proof*: Authored `GroupServiceTests.cs` (12 unit tests). Total automated test suite expanded to 60 tests passing (`Total: 60, Passed: 60, Failed: 0`). Executed live verification against Kestrel server: admin authenticated `POST /api/v1/groups` created parent group `Operations` (ID 2) and child subgroups `Assembly Line A` (ID 3) and `Assembly Line B` (ID 4); `GET /api/v1/groups` returned full hierarchical tree with `children: [...]`; reparenting Root Group 1 was rejected with `409 Conflict`; cyclic dependency (setting Operations parent to its child Assembly Line A) was rejected with `422 Unprocessable Entity`; deleting Root Group 1 was rejected with `409 Conflict`; deleting child group safely reassigned member devices to Group 1 and returned `200 OK`; IT Support role attempts to mutate groups were rejected with `403 Forbidden`.
 - [ ] **3.3 Device Inventory CRUD API**:
   - [ ] `GET /api/v1/devices`: Paginated device records (10 schema fields).
   - [ ] `POST /api/v1/devices`: Create device; role-based switch vs endpoint checks.
