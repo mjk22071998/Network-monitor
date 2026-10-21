@@ -69,3 +69,33 @@ public class UserNotFoundException : DomainException
     public UserNotFoundException(string username) 
         : base($"User with username '{username}' was not found.", "USER_NOT_FOUND") { }
 }
+
+public class SelfDeletionException : DomainException
+{
+    public SelfDeletionException(string message = "Administrative security policy prohibits self-deletion.") 
+        : base(message, "CANNOT_DELETE_SELF") { }
+}
+
+public class InvalidUsernameException : DomainException
+{
+    public InvalidUsernameException(string message = "Username is required and cannot be empty.") 
+        : base(message, "INVALID_USERNAME") { }
+}
+
+public class DuplicateUsernameException : DomainException
+{
+    public DuplicateUsernameException(string username) 
+        : base($"Username '{username}' already exists in enclave database.", "DUPLICATE_USERNAME") { }
+}
+
+public class InvalidRoleException : DomainException
+{
+    public InvalidRoleException(short roleId) 
+        : base($"Role ID {roleId} is not a valid operational role.", "INVALID_ROLE") { }
+}
+
+public class InvalidSiteException : DomainException
+{
+    public InvalidSiteException(int siteId) 
+        : base($"Site ID {siteId} does not exist.", "INVALID_SITE") { }
+}

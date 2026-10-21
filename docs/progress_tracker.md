@@ -12,14 +12,14 @@
 
 | Metric | Current Status | Notes |
 | :--- | :---: | :--- |
-| **Current Milestone** | **Milestone 1: Architectural Baseline & Scaffolding** | Specifications complete; Phase 0 & 1 verified. |
-| **Active Phase** | **Phase 2: Security, Argon2id & Session Authentication Engine** | Phase 1 PostgreSQL & EF Core 10 verified. |
+| **Current Milestone** | **Milestone 1: Architectural Baseline & Scaffolding** | Specifications complete; Phase 0, 1 & 2 verified. |
+| **Active Phase** | **Phase 3: Core Enclave Entities & Device Inventory CRUD** | Phase 2 Security, Argon2id & Users API verified. |
 | **Specifications Status** | **100% COMPLETE & LOCKED** | All master specification documents approved. |
 | **Database Engine** | **PostgreSQL 18** | 3NF DDL, Range Partitioning, PL/pgSQL Triggers verified. |
 | **Backend Stack** | **C# (.NET 10) Web API + EF Core 10** | 4-Tier Layered Architecture, Npgsql, Async Ping, Zero Raw SQL, SOLID & GoF Patterns. |
 | **Frontend Stack** | **Vue 3 + Vite + Cytoscape.js + ECharts** | Pinia, fine-grained proxy reactivity, Cyber-Tactical theme. |
 | **Memory Architecture**| **500 MB Total System RAM Allowance** | Explicit memory budget, `markRaw()` on canvas, `shallowRef()` on telemetry batches. |
-| **Overall Completion** | **35% (Phase 0 & 1 Complete & Verified)** | Ready for Phase 2 Security & Authentication. |
+| **Overall Completion** | **45% (Phase 0, 1 & 2 Complete & Verified)** | Ready for Phase 3 Core Enclave Entities & Device Inventory. |
 
 ## 2. Mandatory Verification Protocol
 
@@ -97,7 +97,7 @@
 ---
 
 ### Phase 2: Security, Argon2id & Session Authentication Engine
-**Status:** `IN PROGRESS`  
+**Status:** `100% COMPLETE & VERIFIED`  
 **Roadmap Reference:** [`project_implementation_roadmap_and_phases.md` § Phase 2](file:///d:/FullStackProjects/Network%20monitor/docs/project_implementation_roadmap_and_phases.md#phase-2-security-argon2id--session-authentication-engine)  
 **Security Reference:** [`security_and_rbac_specification.md`](file:///d:/FullStackProjects/Network%20monitor/docs/security_and_rbac_specification.md)
 
@@ -123,11 +123,12 @@
   - [x] `GET /api/v1/auth/me`: Return caller identity, role profile, and active status.
   - [x] `PUT /api/v1/auth/password`: Authenticated self-service password update with complexity, reuse, and session invalidation guards.
   - *Verification Proof*: Executed 26 automated unit/integration tests (`Total: 26, Passed: 26, Failed: 0`). Verified end-to-end against live Kestrel server via `curl.exe`: login sets cookie & token, `GET /auth/me` verifies identity, logout revokes session (`204`), subsequent access rejected with `401`, password update rejects weak/reused passwords and revokes active sessions.
-- [ ] **2.5 User Administration API (Admin Only)**:
-  - [ ] `GET /api/v1/users`: List users with string `role` and `site_name`.
-  - [ ] `POST /api/v1/users`: Pre-provision operator accounts (Zero self-registration).
-  - [ ] `GET /api/v1/users/{id}` & `PUT /api/v1/users/{id}`: Profile updates & admin password reset.
-  - [ ] `DELETE /api/v1/users/{id}`: Safe deactivation; prevent self-deletion (`409`).
+- [x] **2.5 User Administration API (Admin Only)**:
+  - [x] `GET /api/v1/users`: List users with string `role` and `site_name`.
+  - [x] `POST /api/v1/users`: Pre-provision operator accounts (Zero self-registration).
+  - [x] `GET /api/v1/users/{id}` & `PUT /api/v1/users/{id}`: Profile updates & admin password reset.
+  - [x] `DELETE /api/v1/users/{id}`: Safe deactivation; prevent self-deletion (`409`).
+  - *Verification Proof*: Authored `UserServiceTests.cs` (12 unit tests). Total automated test suite expanded to 38 tests, all passing (`Total: 38, Passed: 38, Failed: 0`). Executed live verification against Kestrel server: admin authenticated `POST /api/v1/users` created operator (`user_id = 2`, `eng_carter`), `GET /api/v1/users/2` returned detail, `PUT /api/v1/users/2` updated role, `DELETE /api/v1/users/1` self-deletion was rejected with `409 Conflict`, and `DELETE /api/v1/users/2` returned `204 No Content`. SPA static hosting and fallback configured in `Program.cs`.
 
 ---
 

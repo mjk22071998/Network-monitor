@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Microsoft.Extensions.FileProviders;
 using NetworkObserver.Api.Middleware;
 using NetworkObserver.Application;
 using NetworkObserver.Infrastructure;
@@ -31,8 +32,34 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
+else
+{
+    app.UseHttpsRedirection();
+}
 
-app.UseHttpsRedirection();
+// Locate compiled Vue 3 SPA frontend assets
+var candidateDistPaths = new[]
+{
+    Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, "..", "..", "..", "frontend", "dist")),
+    Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, "..", "..", "frontend", "dist")),
+    Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "frontend", "dist")),
+    Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, "wwwroot"))
+};
+
+var staticFilesPath = candidateDistPaths.FirstOrDefault(Directory.Exists);
+
+if (staticFilesPath != null)
+{
+    var fileProvider = new PhysicalFileProvider(staticFilesPath);
+    app.UseDefaultFiles(new DefaultFilesOptions
+    {
+        FileProvider = fileProvider
+    });
+    app.UseStaticFiles(new StaticFileOptions
+    {
+        FileProvider = fileProvider
+    });
+}
 
 // Session Authentication Middleware (extracts session from observer_session cookie or Bearer header)
 app.UseMiddleware<SessionAuthenticationMiddleware>();
@@ -40,5 +67,14 @@ app.UseMiddleware<SessionAuthenticationMiddleware>();
 app.UseAuthorization();
 
 app.MapControllers();
+
+// SPA Fallback for client-side routing
+if (staticFilesPath != null)
+{
+    app.MapFallbackToFile("index.html", new StaticFileOptions
+    {
+        FileProvider = new PhysicalFileProvider(staticFilesPath)
+    });
+}
 
 app.Run();

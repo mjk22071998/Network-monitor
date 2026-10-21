@@ -32,6 +32,7 @@ public static class DependencyInjection
 
         // Repositories (Data Access Abstraction)
         services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<ISiteRepository, SiteRepository>();
 
         // Security, Argon2id Cryptography, and Session Management
         services.AddSingleton<IPasswordHasher, Argon2idPasswordHasher>();
