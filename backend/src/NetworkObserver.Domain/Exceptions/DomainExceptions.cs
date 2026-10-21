@@ -141,3 +141,27 @@ public class GroupValidationException : DomainException
     public GroupValidationException(string message) 
         : base(message, "GROUP_VALIDATION_ERROR") { }
 }
+
+public class DuplicateMacException : DomainException
+{
+    public DuplicateMacException(string macAddress) 
+        : base($"Device with MAC address '{macAddress}' already exists.", "DUPLICATE_MAC_ADDRESS") { }
+}
+
+public class InvalidDeviceException : DomainException
+{
+    public InvalidDeviceException(string message) 
+        : base(message, "DEVICE_VALIDATION_ERROR") { }
+}
+
+public class InvalidDeviceTypeException : DomainException
+{
+    public InvalidDeviceTypeException(short typeId) 
+        : base($"Device type ID {typeId} is not a valid operational equipment tier.", "INVALID_DEVICE_TYPE") { }
+}
+
+public class InvalidParentDeviceException : DomainException
+{
+    public InvalidParentDeviceException(int parentDeviceId) 
+        : base($"Parent device with ID {parentDeviceId} does not exist.", "INVALID_PARENT_DEVICE") { }
+}

@@ -147,12 +147,13 @@
   - [x] `PUT /api/v1/groups/{id}`: Rename/move group; circular dependency prevention and Root Group 1 protection.
   - [x] `DELETE /api/v1/groups/{id}`: Fallback reassigning member devices to Group 1 (Unassigned) and reparenting child subgroups.
   - *Verification Proof*: Authored `GroupServiceTests.cs` (12 unit tests). Total automated test suite expanded to 60 tests passing (`Total: 60, Passed: 60, Failed: 0`). Executed live verification against Kestrel server: admin authenticated `POST /api/v1/groups` created parent group `Operations` (ID 2) and child subgroups `Assembly Line A` (ID 3) and `Assembly Line B` (ID 4); `GET /api/v1/groups` returned full hierarchical tree with `children: [...]`; reparenting Root Group 1 was rejected with `409 Conflict`; cyclic dependency (setting Operations parent to its child Assembly Line A) was rejected with `422 Unprocessable Entity`; deleting Root Group 1 was rejected with `409 Conflict`; deleting child group safely reassigned member devices to Group 1 and returned `200 OK`; IT Support role attempts to mutate groups were rejected with `403 Forbidden`.
-- [ ] **3.3 Device Inventory CRUD API**:
-  - [ ] `GET /api/v1/devices`: Paginated device records (10 schema fields).
-  - [ ] `POST /api/v1/devices`: Create device; role-based switch vs endpoint checks.
-  - [ ] `GET /api/v1/devices/{id}`: Single device profile.
-  - [ ] `PUT /api/v1/devices/{id}`: Update device; reject MAC edit (`422 DEVICE_MAC_IMMUTABLE`).
-  - [ ] `DELETE /api/v1/devices/{id}`: Safe delete setting children `parent_device_id = NULL`.
+- [x] **3.3 Device Inventory CRUD API**:
+  - [x] `GET /api/v1/devices`: Paginated device records (10 schema fields) with filtering and alternative MAC lookup (`?mac=...`).
+  - [x] `POST /api/v1/devices`: Create device; tiered equipment role authorization (Admin $\rightarrow$ Backbone; Engineer $\rightarrow$ Switches; Support $\rightarrow$ Leaf PCs).
+  - [x] `GET /api/v1/devices/{id}`: Single device profile with parent link details.
+  - [x] `PUT /api/v1/devices/{id}`: Update device; immutable MAC address enforcement (`422 DEVICE_MAC_IMMUTABLE`).
+  - [x] `DELETE /api/v1/devices/{id}`: Safe orphan deletion setting child `parent_device_id = NULL`.
+  - *Verification Proof*: Authored `DeviceServiceTests.cs` (14 unit tests). Entire automated test suite expanded to 74 tests passing (`Total: 74, Passed: 74, Failed: 0`). Executed live verification against Kestrel server: admin provisioned Core Router (ID 1), Access Switch (ID 2), and Leaf PLC (ID 3); `GET /devices` verified pagination and MAC lookup (`?mac=...`); `PUT /devices/{id}` rejected MAC mutation with `422 Unprocessable Entity` and permitted valid attribute update; deleting Access Switch safely orphaned child PLC (`parent_device_id = null`) and returned `200 OK` with orphaned child ID list; tiered RBAC verified live: IT Support creating a Core Router was rejected with `403 Forbidden`, while IT Support creating a Leaf PC succeeded with `201 Created`.
 - [ ] **3.4 Global Polling Configuration API**:
   - [ ] `GET /api/v1/monitoring/config`: Return singleton configuration.
   - [ ] `PUT /api/v1/monitoring/config`: Admin update of polling cadences.
