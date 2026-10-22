@@ -35,6 +35,7 @@ public static class DependencyInjection
         services.AddScoped<ISiteRepository, SiteRepository>();
         services.AddScoped<IGroupRepository, GroupRepository>();
         services.AddScoped<IDeviceRepository, DeviceRepository>();
+        services.AddScoped<IMonitoringConfigRepository, MonitoringConfigRepository>();
 
         // Security, Argon2id Cryptography, and Session Management
         services.AddSingleton<IPasswordHasher, Argon2idPasswordHasher>();

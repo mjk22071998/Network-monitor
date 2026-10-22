@@ -12,14 +12,14 @@
 
 | Metric | Current Status | Notes |
 | :--- | :---: | :--- |
-| **Current Milestone** | **Milestone 1: Architectural Baseline & Scaffolding** | Specifications complete; Phase 0, 1 & 2 verified. |
-| **Active Phase** | **Phase 3: Core Enclave Entities & Device Inventory CRUD** | Phase 2 Security, Argon2id & Users API verified. |
+| **Current Milestone** | **Milestone 2: Core Entities, Telemetry & Ingestion Pipeline** | Phase 0, 1, 2 & 3 verified. Ready for Phase 4 Telemetry Poller. |
+| **Active Phase** | **Phase 4: High-Performance Multithreaded Telemetry Poller** | Phase 3 Core Enclave Entities & Device Inventory verified. |
 | **Specifications Status** | **100% COMPLETE & LOCKED** | All master specification documents approved. |
 | **Database Engine** | **PostgreSQL 18** | 3NF DDL, Range Partitioning, PL/pgSQL Triggers verified. |
 | **Backend Stack** | **C# (.NET 10) Web API + EF Core 10** | 4-Tier Layered Architecture, Npgsql, Async Ping, Zero Raw SQL, SOLID & GoF Patterns. |
 | **Frontend Stack** | **Vue 3 + Vite + Cytoscape.js + ECharts** | Pinia, fine-grained proxy reactivity, Cyber-Tactical theme. |
 | **Memory Architecture**| **500 MB Total System RAM Allowance** | Explicit memory budget, `markRaw()` on canvas, `shallowRef()` on telemetry batches. |
-| **Overall Completion** | **45% (Phase 0, 1 & 2 Complete & Verified)** | Ready for Phase 3 Core Enclave Entities & Device Inventory. |
+| **Overall Completion** | **60% (Phase 0, 1, 2 & 3 Complete & Verified)** | Ready for Phase 4 Multithreaded ICMP/NTP/SNMP Engine. |
 
 ## 2. Mandatory Verification Protocol
 
@@ -133,7 +133,7 @@
 ---
 
 ### Phase 3: Core Enclave Entities & Device Inventory CRUD
-**Status:** `IN PROGRESS`  
+**Status:** `100% COMPLETE & VERIFIED`  
 **Roadmap Reference:** [`project_implementation_roadmap_and_phases.md` § Phase 3](file:///d:/FullStackProjects/Network%20monitor/project_implementation_roadmap_and_phases.md#phase-3-core-enclave-entities--device-inventory-crud)  
 **API Reference:** [`api_contracts_specification.md` § 4, 5, 7](file:///d:/FullStackProjects/Network%20monitor/api_contracts_specification.md)
 
@@ -154,9 +154,10 @@
   - [x] `PUT /api/v1/devices/{id}`: Update device; immutable MAC address enforcement (`422 DEVICE_MAC_IMMUTABLE`).
   - [x] `DELETE /api/v1/devices/{id}`: Safe orphan deletion setting child `parent_device_id = NULL`.
   - *Verification Proof*: Authored `DeviceServiceTests.cs` (14 unit tests). Entire automated test suite expanded to 74 tests passing (`Total: 74, Passed: 74, Failed: 0`). Executed live verification against Kestrel server: admin provisioned Core Router (ID 1), Access Switch (ID 2), and Leaf PLC (ID 3); `GET /devices` verified pagination and MAC lookup (`?mac=...`); `PUT /devices/{id}` rejected MAC mutation with `422 Unprocessable Entity` and permitted valid attribute update; deleting Access Switch safely orphaned child PLC (`parent_device_id = null`) and returned `200 OK` with orphaned child ID list; tiered RBAC verified live: IT Support creating a Core Router was rejected with `403 Forbidden`, while IT Support creating a Leaf PC succeeded with `201 Created`.
-- [ ] **3.4 Global Polling Configuration API**:
-  - [ ] `GET /api/v1/monitoring/config`: Return singleton configuration.
-  - [ ] `PUT /api/v1/monitoring/config`: Admin update of polling cadences.
+- [x] **3.4 Global Polling Configuration API**:
+  - [x] `GET /api/v1/monitoring/config`: Return singleton configuration for all authenticated roles.
+  - [x] `PUT /api/v1/monitoring/config`: Admin/Engineer update of polling cadences with strict boundary validation (1s–60s reachability, 10s–300s health).
+  - *Verification Proof*: Authored `MonitoringConfigServiceTests.cs` (14 unit tests). Entire test suite expanded to 88 tests passing (`Total: 88, Passed: 88, Failed: 0`). Executed live verification against Kestrel server: admin `GET /api/v1/monitoring/config` verified initial 5s/30s cadences; admin `PUT` successfully updated cadences (10s reachability, 60s health, cascade suppression toggle); out-of-bounds cadences were rejected with `400 Bad Request`; IT Support role `PUT` was rejected with `403 Forbidden` while `GET` was permitted (`200 OK`); persistence in PostgreSQL 18 verified. Single-site configuration restored. Phase 3 complete.
 
 ---
 

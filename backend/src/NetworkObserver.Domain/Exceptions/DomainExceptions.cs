@@ -165,3 +165,15 @@ public class InvalidParentDeviceException : DomainException
     public InvalidParentDeviceException(int parentDeviceId) 
         : base($"Parent device with ID {parentDeviceId} does not exist.", "INVALID_PARENT_DEVICE") { }
 }
+
+public class MonitoringConfigNotFoundException : DomainException
+{
+    public MonitoringConfigNotFoundException(string message = "Global monitoring configuration not found.") 
+        : base(message, "CONFIG_NOT_FOUND") { }
+}
+
+public class MonitoringConfigValidationException : DomainException
+{
+    public MonitoringConfigValidationException(string message) 
+        : base(message, "INVALID_CONFIG_PARAMETERS") { }
+}
