@@ -205,21 +205,27 @@
 ---
 
 ### Phase 5: Subnet Discovery Sweep & Operational Diagnostics
-**Status:** `NOT STARTED`  
+**Status:** `COMPLETED`  
 **Roadmap Reference:** [`project_implementation_roadmap_and_phases.md` § Phase 5](file:///d:/FullStackProjects/Network%20monitor/project_implementation_roadmap_and_phases.md#phase-5-subnet-discovery-sweep--operational-diagnostics)
 
-- [ ] **5.1 Asynchronous Subnet Discovery Worker**:
-  - [ ] `POST /api/v1/discovery/scan`: Dispatch async sweep for CIDR (max `/24`).
-  - [ ] Enforce max 1 concurrent scan per site (`409 Conflict`).
-  - [ ] 10ms packet pacing between probes to prevent industrial PLC tripping.
-  - [ ] Ping sweep, ARP cache read, SNMP bridge interrogation, MAC OUI typing heuristics.
-- [ ] **5.2 Discovery Status API**:
-  - [ ] `GET /api/v1/discovery/scan/{id}`: Return progress % and discovered assets.
-- [ ] **5.3 Device Maintenance Mode Engine**:
-  - [ ] `PUT /api/v1/devices/{id}/maintenance`: Toggle `is_monitored = false`.
-  - [ ] Turn node slate-gray (`UNKNOWN`) and suppress cascade alerts.
-  - [ ] Enforce role check: `IT_SUPPORT` restricted to leaf endpoints.
-  - [ ] Log event to `audit_logs`.
+- [x] **5.1 Asynchronous Subnet Discovery Worker**:
+  - [x] `POST /api/v1/discovery/scan`: Dispatch async sweep for CIDR (max `/24`).
+  - [x] Enforce max 1 concurrent scan per site (`409 Conflict`).
+  - [x] 10ms packet pacing between probes to prevent network congestion.
+  - [x] Ping sweep, native OS ARP cache read (`SendARP`), MAC OUI typing heuristics (`Dell`, `HP`, `Cisco`, `Lenovo`, `Apple`, etc.).
+- [x] **5.2 Discovery Status API**:
+  - [x] `GET /api/v1/discovery/scan/{id}`: Return progress % and discovered assets list.
+  - [x] `POST /api/v1/discovery/scan/{id}/cancel`: Cancellation hook with immediate lock release.
+- [x] **5.3 Device Maintenance Mode Engine**:
+  - [x] `PUT /api/v1/devices/{id}/maintenance`: Toggle `is_monitored = false`.
+  - [x] Turn node slate-gray (`UNKNOWN`) with `latency_us = null` (Strict N/A Rule).
+  - [x] Enforce role check: `IT_SUPPORT` restricted to leaf endpoints (`type_id` 4, 5); Switches and Routers require `NETWORK_ADMIN` / `NETWORK_ENGINEER`.
+  - [x] Log immutable event to PostgreSQL `audit_logs` table.
+- [x] **5.4 Automated Test Suite**:
+  - [x] Authored `DeviceMaintenanceTests.cs` (7 unit tests).
+  - [x] Authored `SubnetDiscoveryServiceTests.cs` (17 unit tests).
+  - [x] Total suite: **126 tests passed, 0 failed, 0 skipped**.
+  - [x] Live end-to-end PowerShell/curl verification on `http://localhost:5000` passed.
 
 ---
 

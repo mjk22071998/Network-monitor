@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using NetworkObserver.Application.Interfaces.Discovery;
 using NetworkObserver.Application.Interfaces.Security;
 using NetworkObserver.Application.Interfaces.Services;
 using NetworkObserver.Application.Interfaces.Telemetry;
@@ -18,6 +19,7 @@ public static class DependencyInjection
         services.AddScoped<IMonitoringConfigService, MonitoringConfigService>();
         services.AddScoped<ICascadeSuppressionCircuit, CascadeSuppressionCircuit>();
         services.AddScoped<ITelemetryService, TelemetryService>();
+        services.AddScoped<ISubnetDiscoveryService, SubnetDiscoveryService>();
         return services;
     }
 }

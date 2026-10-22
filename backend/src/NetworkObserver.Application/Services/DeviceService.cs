@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using NetworkObserver.Application.DTOs;
 using NetworkObserver.Application.Interfaces.Repositories;
@@ -21,11 +22,19 @@ public class DeviceService : IDeviceService
 
     private readonly IDeviceRepository _deviceRepository;
     private readonly IGroupRepository _groupRepository;
+    private readonly IReachabilityRepository _reachabilityRepository;
+    private readonly IAuditLogRepository _auditLogRepository;
 
-    public DeviceService(IDeviceRepository deviceRepository, IGroupRepository groupRepository)
+    public DeviceService(
+        IDeviceRepository deviceRepository,
+        IGroupRepository groupRepository,
+        IReachabilityRepository? reachabilityRepository = null,
+        IAuditLogRepository? auditLogRepository = null)
     {
         _deviceRepository = deviceRepository;
         _groupRepository = groupRepository;
+        _reachabilityRepository = reachabilityRepository ?? new NullReachabilityRepository();
+        _auditLogRepository = auditLogRepository ?? new NullAuditLogRepository();
     }
 
     public async Task<PagedResponse<DeviceListItemDto>> GetDevicesAsync(
@@ -243,6 +252,76 @@ public class DeviceService : IDeviceService
         );
     }
 
+    public async Task<DeviceMaintenanceResponse> ToggleMaintenanceAsync(
+        int deviceId,
+        DeviceMaintenanceRequest request,
+        int userId,
+        RoleType operatorRole,
+        string ipAddress,
+        CancellationToken ct = default)
+    {
+        var device = await _deviceRepository.GetByIdAsync(deviceId, ct);
+        if (device == null)
+        {
+            throw new DeviceNotFoundException(deviceId);
+        }
+
+        // Switches & Routers (type 1, 2, 3) require NetworkAdmin or NetworkEngineer.
+        // IT_SUPPORT is strictly restricted to leaf endpoints (type 4, 5).
+        if (device.TypeId is 1 or 2 or 3 && operatorRole == RoleType.ItSupport)
+        {
+            throw new UnauthorizedRoleException("IT Support operators cannot toggle maintenance mode on network switches or routers. Only leaf endpoints (PCs/Servers) are permitted.");
+        }
+
+        device.IsMonitored = request.IsMonitored;
+        device.UpdatedAt = DateTimeOffset.UtcNow;
+        await _deviceRepository.UpdateAsync(device, ct);
+
+        // Record UNKNOWN reachability sample on maintenance entry to visually turn node slate-gray
+        // and eliminate false positive alarm spikes (api_contracts_specification.md Section 8.3)
+        var sample = new ReachabilitySample
+        {
+            DeviceId = deviceId,
+            RecordedAt = DateTimeOffset.UtcNow,
+            StatusId = 0, // UNKNOWN
+            LatencyUs = null, // Strict N/A Rule
+            LossPercentage = 0f,
+            NtpOffsetUs = null,
+            IsSuppressed = false
+        };
+        await _reachabilityRepository.AddBatchAsync(new[] { sample }, ct);
+
+        // Record non-repudiation audit log entry
+        var detailsJson = JsonSerializer.Serialize(new
+        {
+            is_monitored = request.IsMonitored,
+            reason = request.Reason ?? "Operational maintenance toggle",
+            device_display_name = device.DisplayName,
+            primary_ip = device.PrimaryIp
+        });
+
+        var auditLog = new AuditLog
+        {
+            UserId = userId,
+            SiteId = 1,
+            ActionCode = "DEVICE_MAINTENANCE",
+            TargetEntity = "DEVICE",
+            TargetId = deviceId.ToString(),
+            Details = detailsJson,
+            IpAddress = string.IsNullOrWhiteSpace(ipAddress) ? "127.0.0.1" : ipAddress,
+            LoggedAt = DateTimeOffset.UtcNow
+        };
+
+        var savedAudit = await _auditLogRepository.AddAsync(auditLog, ct);
+
+        return new DeviceMaintenanceResponse(
+            DeviceId: deviceId,
+            IsMonitored: request.IsMonitored,
+            StatusCode: "UNKNOWN",
+            AuditLogId: savedAudit.LogId
+        );
+    }
+
     private static void ValidateRoleForEquipmentTier(short typeId, RoleType operatorRole, string action)
     {
         switch ((DeviceTypeEnum)typeId)
@@ -360,4 +439,25 @@ public class DeviceService : IDeviceService
         DeviceTypeEnum.Pc => "PC",
         _ => "UNKNOWN"
     };
+}
+
+internal class NullReachabilityRepository : IReachabilityRepository
+{
+    public Task AddBatchAsync(IEnumerable<ReachabilitySample> samples, CancellationToken ct = default) => Task.CompletedTask;
+    public Task<ReachabilitySample?> GetLatestByDeviceIdAsync(int deviceId, CancellationToken ct = default) => Task.FromResult<ReachabilitySample?>(null);
+    public Task<IReadOnlyDictionary<int, ReachabilitySample>> GetLatestForMonitoredDevicesAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyDictionary<int, ReachabilitySample>>(new Dictionary<int, ReachabilitySample>());
+    public Task<IReadOnlyList<ReachabilitySample>> GetHistoryAsync(int deviceId, DateTimeOffset start, DateTimeOffset end, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<ReachabilitySample>>(Array.Empty<ReachabilitySample>());
+    public Task<TelemetrySummaryDto> GetSummaryAsync(int totalMonitoredCount, CancellationToken ct = default) => Task.FromResult(new TelemetrySummaryDto(DateTimeOffset.UtcNow, new ReachabilitySummaryDto(0,0,0,0,0), new HostHealthSummaryDto(0,0,0,0)));
+}
+
+internal class NullAuditLogRepository : IAuditLogRepository
+{
+    private static long _seq = 1000;
+    public Task<AuditLog> AddAsync(AuditLog log, CancellationToken ct = default)
+    {
+        if (log.LogId == 0) log.LogId = Interlocked.Increment(ref _seq);
+        return Task.FromResult(log);
+    }
+    public Task<AuditLog?> GetByIdAsync(long logId, CancellationToken ct = default) => Task.FromResult<AuditLog?>(null);
+    public Task<IReadOnlyList<AuditLog>> GetRecentAsync(int limit = 50, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<AuditLog>>(Array.Empty<AuditLog>());
 }

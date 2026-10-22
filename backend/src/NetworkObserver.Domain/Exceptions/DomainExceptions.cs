@@ -177,3 +177,21 @@ public class MonitoringConfigValidationException : DomainException
     public MonitoringConfigValidationException(string message) 
         : base(message, "INVALID_CONFIG_PARAMETERS") { }
 }
+
+public class SubnetValidationException : DomainException
+{
+    public SubnetValidationException(string message, string errorCode = "SUBNET_VALIDATION_ERROR") 
+        : base(message, errorCode) { }
+}
+
+public class ScanConflictException : DomainException
+{
+    public ScanConflictException(string message = "A discovery scan is already active for this site.") 
+        : base(message, "SCAN_ALREADY_IN_PROGRESS") { }
+}
+
+public class ScanNotFoundException : DomainException
+{
+    public ScanNotFoundException(string scanId) 
+        : base($"Discovery scan '{scanId}' was not found.", "SCAN_NOT_FOUND") { }
+}

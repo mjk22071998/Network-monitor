@@ -137,3 +137,15 @@ public record DeleteDeviceResponse(
     int OrphanedChildrenCount,
     IReadOnlyList<int> OrphanedChildrenDeviceIds
 );
+
+public record DeviceMaintenanceRequest(
+    bool IsMonitored,
+    string? Reason = null
+);
+
+public record DeviceMaintenanceResponse(
+    int DeviceId,
+    bool IsMonitored,
+    string StatusCode,
+    long AuditLogId
+);

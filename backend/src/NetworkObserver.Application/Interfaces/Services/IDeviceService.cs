@@ -16,4 +16,5 @@ public interface IDeviceService
     Task<CreatedDeviceResponse> CreateDeviceAsync(CreateDeviceRequest request, RoleType operatorRole, CancellationToken ct = default);
     Task<UpdatedDeviceResponse> UpdateDeviceAsync(int deviceId, UpdateDeviceRequest request, RoleType operatorRole, CancellationToken ct = default);
     Task<DeleteDeviceResponse> DeleteDeviceAsync(int deviceId, RoleType operatorRole, CancellationToken ct = default);
+    Task<DeviceMaintenanceResponse> ToggleMaintenanceAsync(int deviceId, DeviceMaintenanceRequest request, int userId, RoleType operatorRole, string ipAddress, CancellationToken ct = default);
 }

@@ -38,6 +38,11 @@ public static class DependencyInjection
         services.AddScoped<IMonitoringConfigRepository, MonitoringConfigRepository>();
         services.AddScoped<IReachabilityRepository, ReachabilityRepository>();
         services.AddScoped<IHealthRepository, HealthRepository>();
+        services.AddScoped<IAuditLogRepository, AuditLogRepository>();
+
+        // Discovery Hardware Identification (Strategy & OUI Heuristics)
+        services.AddSingleton<NetworkObserver.Application.Interfaces.Discovery.IMacVendorLookup, NetworkObserver.Infrastructure.Discovery.MacVendorLookup>();
+        services.AddSingleton<NetworkObserver.Application.Interfaces.Discovery.IArpResolver, NetworkObserver.Infrastructure.Discovery.WindowsNativeArpResolver>();
 
         // Telemetry Engine & Raw Socket Probe Factory (Strategy & Factory Patterns)
         services.AddSingleton<NetworkObserver.Application.Interfaces.Telemetry.IPingProbeFactory, NetworkObserver.Infrastructure.Telemetry.PingProbeFactory>();

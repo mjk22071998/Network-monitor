@@ -144,6 +144,37 @@ public class DevicesController : ControllerBase
         return Ok(response);
     }
 
+    /// <summary>
+    /// Toggles operational maintenance mode for a device (api_contracts_specification.md Section 8.3).
+    /// Guarded by tiered equipment role authorization:
+    /// - Switches & Routers: NetworkAdmin, NetworkEngineer
+    /// - Leaf Endpoints: NetworkAdmin, NetworkEngineer, ITSupport
+    /// </summary>
+    [HttpPut("{id:int}/maintenance")]
+    [AuthorizeRole(RoleType.NetworkAdmin, RoleType.NetworkEngineer, RoleType.ItSupport)]
+    [ProducesResponseType(typeof(DeviceMaintenanceResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ToggleMaintenance(
+        [FromRoute] int id,
+        [FromBody] DeviceMaintenanceRequest request,
+        CancellationToken ct)
+    {
+        var role = GetCallerRole();
+        var userId = GetCallerUserId();
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+
+        var response = await _deviceService.ToggleMaintenanceAsync(id, request, userId, role, ipAddress, ct);
+        return Ok(response);
+    }
+
+    private int GetCallerUserId()
+    {
+        var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        return int.TryParse(userIdStr, out var id) ? id : 1;
+    }
+
     private RoleType GetCallerRole()
     {
         var roleIdStr = User.FindFirst("role_id")?.Value;
