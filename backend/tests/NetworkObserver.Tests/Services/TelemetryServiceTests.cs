@@ -13,9 +13,11 @@ public class TelemetryServiceTests
 {
     private readonly StubDeviceRepository _deviceRepo;
     private readonly StubReachabilityRepository _reachabilityRepo;
+    private readonly StubHealthRepository _healthRepo;
     private readonly StubMonitoringConfigRepository _configRepo;
     private readonly StubPingProbeFactory _probeFactory;
     private readonly StubNtpProbeFactory _ntpFactory;
+    private readonly StubHostHealthProbeFactory _healthFactory;
     private readonly CascadeSuppressionCircuit _suppressionCircuit;
     private readonly TelemetryService _telemetryService;
 
@@ -23,6 +25,7 @@ public class TelemetryServiceTests
     {
         _deviceRepo = new StubDeviceRepository();
         _reachabilityRepo = new StubReachabilityRepository();
+        _healthRepo = new StubHealthRepository();
         _configRepo = new StubMonitoringConfigRepository();
         _configRepo.SetConfig(new MonitoringConfig
         {
@@ -36,14 +39,17 @@ public class TelemetryServiceTests
         });
         _probeFactory = new StubPingProbeFactory();
         _ntpFactory = new StubNtpProbeFactory();
+        _healthFactory = new StubHostHealthProbeFactory();
         _suppressionCircuit = new CascadeSuppressionCircuit();
 
         _telemetryService = new TelemetryService(
             _deviceRepo,
             _reachabilityRepo,
+            _healthRepo,
             _configRepo,
             _probeFactory,
             _ntpFactory,
+            _healthFactory,
             _suppressionCircuit
         );
     }
@@ -356,6 +362,92 @@ public class TelemetryServiceTests
         await Assert.ThrowsAsync<DeviceNotFoundException>(() =>
             _telemetryService.GetTelemetryHistoryAsync(9999, DateTimeOffset.UtcNow.AddHours(-1), DateTimeOffset.UtcNow, "raw"));
     }
+
+    [Fact]
+    public async Task ExecuteHealthSweepAsync_ProbesMonitoredEndpoints_AndPersistsMultiVolumeDiskStorage()
+    {
+        // Arrange
+        _deviceRepo.AddDevice(new Device { DeviceId = 1, DisplayName = "CORE-R1", PrimaryIp = "10.0.0.1", MacAddress = "00:1A:2B:00:00:01", TypeId = 1, GroupId = 1, IsMonitored = true });
+        _deviceRepo.AddDevice(new Device { DeviceId = 2, DisplayName = "SCADA-SERVER-1", PrimaryIp = "192.168.1.10", MacAddress = "00:1A:2B:00:00:02", TypeId = 4, GroupId = 1, IsMonitored = true });
+        _deviceRepo.AddDevice(new Device { DeviceId = 3, DisplayName = "OPERATOR-PC-1", PrimaryIp = "192.168.1.50", MacAddress = "00:1A:2B:00:00:03", TypeId = 5, GroupId = 1, IsMonitored = true });
+
+        // Core Router: Unsupported
+        _healthFactory.ConfigureResult("10.0.0.1", new HostHealthProbeResult(
+            IsSuccess: false, StatusId: 4, CpuUtilizationPct: null, RamUtilizationPct: null, NetRxKbps: null, NetTxKbps: null, TemperatureCelsius: null, DiskVolumes: Array.Empty<DiskVolumeProbeResult>()));
+
+        // Server: Available with 2 disk partitions
+        _healthFactory.ConfigureResult("192.168.1.10", new HostHealthProbeResult(
+            IsSuccess: true, StatusId: 1, CpuUtilizationPct: 25.5f, RamUtilizationPct: 50.0f, NetRxKbps: 450.0f, NetTxKbps: 120.0f, TemperatureCelsius: 38.5f,
+            DiskVolumes: new List<DiskVolumeProbeResult>
+            {
+                new("C:", 45.0f, 256.0f, 140.8f),
+                new("D:", 80.0f, 1024.0f, 204.8f)
+            }));
+
+        // PC: Unavailable (Strict N/A Rule: all metrics null)
+        _healthFactory.ConfigureResult("192.168.1.50", new HostHealthProbeResult(
+            IsSuccess: false, StatusId: 2, CpuUtilizationPct: null, RamUtilizationPct: null, NetRxKbps: null, NetTxKbps: null, TemperatureCelsius: null, DiskVolumes: Array.Empty<DiskVolumeProbeResult>()));
+
+        // Act
+        var result = await _telemetryService.ExecuteHealthSweepAsync();
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(3, result.PolledCount);
+        Assert.Equal(1, result.AvailableCount);
+        Assert.Equal(1, result.UnavailableCount);
+        Assert.Equal(1, result.UnsupportedCount);
+
+        var saved = _healthRepo.SavedSamples;
+        Assert.Equal(3, saved.Count);
+
+        var serverSample = saved.First(s => s.DeviceId == 2);
+        Assert.Equal(1, serverSample.StatusId);
+        Assert.Equal(25.5f, serverSample.CpuUtilizationPct);
+        Assert.Equal(50.0f, serverSample.RamUtilizationPct);
+        Assert.Equal(2, serverSample.DiskVolumeSamples.Count);
+        Assert.Equal("C:", serverSample.DiskVolumeSamples.First().VolumeName);
+        Assert.Equal(45.0f, serverSample.DiskVolumeSamples.First().UsedPercentage);
+
+        var pcSample = saved.First(s => s.DeviceId == 3);
+        Assert.Equal(2, pcSample.StatusId);
+        Assert.Null(pcSample.CpuUtilizationPct); // STRICT N/A RULE
+        Assert.Null(pcSample.RamUtilizationPct);
+    }
+
+    [Fact]
+    public async Task GetLiveTelemetryAsync_WhenHealthSampleExists_PopulatesHostLayerAndDiskVolumes()
+    {
+        // Arrange
+        _deviceRepo.AddDevice(new Device { DeviceId = 2, DisplayName = "SCADA-SERVER-1", PrimaryIp = "192.168.1.10", MacAddress = "00:1A:2B:00:00:02", TypeId = 4, GroupId = 1 });
+        var now = DateTimeOffset.UtcNow;
+
+        _reachabilityRepo.SetLatestSample(2, new ReachabilitySample
+        {
+            DeviceId = 2, RecordedAt = now, StatusId = 1, LatencyUs = 200, LossPercentage = 0f
+        });
+
+        _healthRepo.SetLatestSample(2, new HealthSample
+        {
+            DeviceId = 2, RecordedAt = now, StatusId = 1, CpuUtilizationPct = 14.5f, RamUtilizationPct = 42.1f,
+            DiskVolumeSamples = new List<DiskVolumeSample>
+            {
+                new() { VolumeName = "C:", TotalCapacityGb = 256f, FreeSpaceGb = 140f, UsedPercentage = 45f }
+            }
+        });
+
+        // Act
+        var live = await _telemetryService.GetLiveTelemetryAsync(2);
+
+        // Assert
+        Assert.NotNull(live);
+        Assert.NotNull(live.HostLayer);
+        Assert.Equal("AVAILABLE", live.HostLayer.StatusCode);
+        Assert.Equal(14.5f, live.HostLayer.CpuUtilizationPct);
+        Assert.Equal(42.1f, live.HostLayer.RamUtilizationPct);
+        Assert.Single(live.HostLayer.DiskVolumes);
+        Assert.Equal("C:", live.HostLayer.DiskVolumes[0].VolumeName);
+    }
 }
 
 // ==========================================
@@ -477,5 +569,85 @@ internal class StubNtpStrategy : INtpStrategy
         }
 
         return Task.FromResult(new NtpProbeResult(false, null, "NoConfiguredNtp"));
+    }
+}
+
+internal class StubHealthRepository : IHealthRepository
+{
+    public List<HealthSample> SavedSamples { get; } = new();
+    private readonly Dictionary<int, HealthSample> _latest = new();
+    private readonly Dictionary<int, List<HealthSample>> _history = new();
+    private HostHealthSummaryDto _summary = new(0, 0, 0, 0);
+
+    public void SetSummary(HostHealthSummaryDto summary) => _summary = summary;
+    public void SetLatestSample(int deviceId, HealthSample sample) => _latest[deviceId] = sample;
+    public void SetHistory(int deviceId, List<HealthSample> samples) => _history[deviceId] = samples;
+
+    public Task AddBatchAsync(IEnumerable<HealthSample> samples, CancellationToken ct = default)
+    {
+        SavedSamples.AddRange(samples);
+        return Task.CompletedTask;
+    }
+
+    public Task<HealthSample?> GetLatestByDeviceIdAsync(int deviceId, CancellationToken ct = default)
+    {
+        _latest.TryGetValue(deviceId, out var sample);
+        return Task.FromResult(sample);
+    }
+
+    public Task<IReadOnlyDictionary<int, HealthSample>> GetLatestForMonitoredDevicesAsync(CancellationToken ct = default)
+    {
+        return Task.FromResult<IReadOnlyDictionary<int, HealthSample>>(_latest);
+    }
+
+    public Task<IReadOnlyList<HealthSample>> GetHistoryAsync(int deviceId, DateTimeOffset start, DateTimeOffset end, CancellationToken ct = default)
+    {
+        if (_history.TryGetValue(deviceId, out var list))
+        {
+            var filtered = list.Where(s => s.RecordedAt >= start && s.RecordedAt <= end).ToList();
+            return Task.FromResult<IReadOnlyList<HealthSample>>(filtered);
+        }
+
+        return Task.FromResult<IReadOnlyList<HealthSample>>(new List<HealthSample>());
+    }
+
+    public Task<HostHealthSummaryDto> GetSummaryAsync(CancellationToken ct = default)
+    {
+        return Task.FromResult(_summary);
+    }
+}
+
+internal class StubHostHealthProbeFactory : IHostHealthProbeFactory
+{
+    private readonly StubHostHealthStrategy _strategy = new();
+
+    public void ConfigureResult(string ip, HostHealthProbeResult result) => _strategy.ConfigureResult(ip, result);
+
+    public IHostHealthStrategy CreateStrategy() => _strategy;
+}
+
+internal class StubHostHealthStrategy : IHostHealthStrategy
+{
+    private readonly Dictionary<string, HostHealthProbeResult> _results = new();
+
+    public void ConfigureResult(string ip, HostHealthProbeResult result) => _results[ip] = result;
+
+    public Task<HostHealthProbeResult> QueryHealthAsync(string ipAddress, short deviceTypeId, int timeoutMs = 3000, CancellationToken ct = default)
+    {
+        if (_results.TryGetValue(ipAddress, out var result))
+        {
+            return Task.FromResult(result);
+        }
+
+        return Task.FromResult(new HostHealthProbeResult(
+            IsSuccess: false,
+            StatusId: 2,
+            CpuUtilizationPct: null,
+            RamUtilizationPct: null,
+            NetRxKbps: null,
+            NetTxKbps: null,
+            TemperatureCelsius: null,
+            DiskVolumes: Array.Empty<DiskVolumeProbeResult>()
+        ));
     }
 }

@@ -36,6 +36,24 @@ public record LiveNetworkLayerDto(
     DateTimeOffset LastCheckedAt
 );
 
+public record LiveDiskVolumeDto(
+    string VolumeName,
+    float TotalCapacityGb,
+    float FreeSpaceGb,
+    float UsedPercentage
+);
+
+public record LiveHostLayerDto(
+    string StatusCode,
+    float? CpuUtilizationPct,
+    float? RamUtilizationPct,
+    float? NetRxKbps,
+    float? NetTxKbps,
+    float? TemperatureCelsius,
+    DateTimeOffset? LastReportedAt,
+    IReadOnlyList<LiveDiskVolumeDto> DiskVolumes
+);
+
 public record DeviceLiveTelemetryDto(
     int DeviceId,
     string MacAddress,
@@ -43,8 +61,16 @@ public record DeviceLiveTelemetryDto(
     string DisplayName,
     LiveNetworkLayerDto? NetworkLayer,
     LatestReachabilityDto? LatestReachability,
-    LatestHealthDto? HostLayer,
+    LiveHostLayerDto? HostLayer,
     LatestHealthDto? LatestHealth
+);
+
+public record HealthSweepResultDto(
+    int PolledCount,
+    int AvailableCount,
+    int UnavailableCount,
+    int UnsupportedCount,
+    DateTimeOffset CompletedAt
 );
 
 public record ReachabilityHistoryPointDto(

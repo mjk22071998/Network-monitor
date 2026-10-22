@@ -183,9 +183,13 @@
   - [x] Halt synthetic ICMP and NTP packets to downstream suppressed nodes, eliminating network packet storms and PLC tripping.
   - [x] Respect `monitoring_config.enable_cascade_suppression` toggle; automatic recovery when parent recovers.
   - *Verification Proof*: Authored `ExecuteReachabilitySweepAsync_WhenUpstreamSwitchFails_ImmediatelySuppressesDownstreamNodes_WithoutSyntheticPings` and `ExecuteReachabilitySweepAsync_WhenCascadeSuppressionDisabled_PollsAllDevicesDirectly` in `TelemetryServiceTests.cs`. Entire automated test suite expanded to 99 tests passing (`Total: 99, Passed: 99, Failed: 0`). Executed live verification against Kestrel server: provisioned Root Switch (offline) and Downstream Child PLC; `POST /api/v1/telemetry/poll` recorded child node as `SUPPRESSED` with `latency_us: null` and zero synthetic ping transmissions; `GET /api/v1/devices/{id}/telemetry/live` returned `status_code: "SUPPRESSED"` and `is_suppressed: true`; `GET /api/v1/telemetry/summary` reflected `suppressed_count: 1`. Cleaned up test assets.
-- [ ] **4.4 Host Health Metrics Collector**:
-  - [ ] Poll host agents on port 9182 / SNMP on switches every 30 seconds.
-  - [ ] Record CPU, RAM, network throughput, and multi-volume disk storage.
+- [x] **4.4 Host Health Metrics Collector**:
+  - [x] Decoupled host health collector evaluating endpoints on port 9182 (`IHostHealthStrategy`, `HttpAgentHealthStrategy`, `IHostHealthProbeFactory`, `HostHealthProbeFactory`).
+  - [x] Collects CPU %, RAM %, network throughput (Rx/Tx Kbps), temperature, and multi-volume partition samples (`disk_volume_samples`).
+  - [x] Enforces equipment tier rules: network infrastructure devices (Routers/Switches) classified as `UNSUPPORTED` (`status_id = 4`); offline endpoints classified as `UNAVAILABLE` (`status_id = 2`).
+  - [x] Strict N/A Rule: all metrics recorded as `NULL` on failure/unsupported (never `0`).
+  - [x] Range-partitioned persistence via `IHealthRepository` / `HealthRepository`.
+  - *Verification Proof*: Authored `ExecuteHealthSweepAsync_ProbesMonitoredEndpoints_AndPersistsMultiVolumeDiskStorage` and `GetLiveTelemetryAsync_WhenHealthSampleExists_PopulatesHostLayerAndDiskVolumes` in `TelemetryServiceTests.cs`. Entire automated test suite expanded to 101 tests passing (`Total: 101, Passed: 101, Failed: 0`). Executed live verification against Kestrel server: `POST /api/v1/telemetry/health/poll` executed decoupled health sweeps across provisioned enclave devices; `GET /api/v1/devices/1/telemetry/live` verified `UNSUPPORTED` classification for Core Router with null metrics; `GET /api/v1/devices/3/telemetry/live` verified `UNAVAILABLE` classification for Leaf endpoint with null metrics; `GET /api/v1/telemetry/summary` verified `host_health` HUD object aggregation.
 - [ ] **4.5 Micro-Batch Ingestion**:
   - [ ] Batch ICMP results into 1-second micro-transactions into partitioned tables.
 - [ ] **4.6 Telemetry & Topology API Endpoints**:

@@ -56,6 +56,22 @@ public class TelemetryController : ControllerBase
     }
 
     /// <summary>
+    /// Triggers an immediate decoupled host health telemetry sweep across all monitored devices.
+    /// Queries CPU, RAM, network throughput, and multi-volume disk storage.
+    /// Accessible to NetworkAdmin and NetworkEngineer.
+    /// </summary>
+    [HttpPost("telemetry/health/poll")]
+    [AuthorizeRole(RoleType.NetworkAdmin, RoleType.NetworkEngineer)]
+    [ProducesResponseType(typeof(HealthSweepResultDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> TriggerHealthSweep(CancellationToken ct)
+    {
+        var result = await _telemetryService.ExecuteHealthSweepAsync(ct);
+        return Ok(result);
+    }
+
+    /// <summary>
     /// Slide-Over Telemetry Inspector (Live Node Details).
     /// Returns latest reachability and host health metrics for a specific device.
     /// Strict N/A Rule: Missing or timed-out metrics return explicit null.

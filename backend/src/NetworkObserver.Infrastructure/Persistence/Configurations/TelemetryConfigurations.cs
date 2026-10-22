@@ -122,6 +122,9 @@ public class HealthSampleConfiguration : IEntityTypeConfiguration<HealthSample>
 
         builder.HasIndex(hs => new { hs.DeviceId, hs.RecordedAt }).HasDatabaseName("idx_health_device_time");
         builder.HasIndex(hs => hs.RecordedAt).HasDatabaseName("idx_health_time");
+
+        // Disk volume samples are linked via sample_id across range-partitioned boundary
+        builder.Ignore(hs => hs.DiskVolumeSamples);
     }
 }
 
@@ -140,5 +143,6 @@ public class DiskVolumeSampleConfiguration : IEntityTypeConfiguration<DiskVolume
         builder.Property(dvs => dvs.FreeSpaceGb).HasColumnName("free_space_gb").IsRequired();
 
         builder.HasIndex(dvs => dvs.SampleId).HasDatabaseName("idx_volume_sample");
+        builder.Ignore(dvs => dvs.HealthSample);
     }
 }
