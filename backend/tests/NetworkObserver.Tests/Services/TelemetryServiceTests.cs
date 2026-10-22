@@ -15,6 +15,7 @@ public class TelemetryServiceTests
     private readonly StubReachabilityRepository _reachabilityRepo;
     private readonly StubMonitoringConfigRepository _configRepo;
     private readonly StubPingProbeFactory _probeFactory;
+    private readonly StubNtpProbeFactory _ntpFactory;
     private readonly TelemetryService _telemetryService;
 
     public TelemetryServiceTests()
@@ -33,12 +34,14 @@ public class TelemetryServiceTests
             CascadeSuppressionEnabled = true
         });
         _probeFactory = new StubPingProbeFactory();
+        _ntpFactory = new StubNtpProbeFactory();
 
         _telemetryService = new TelemetryService(
             _deviceRepo,
             _reachabilityRepo,
             _configRepo,
-            _probeFactory
+            _probeFactory,
+            _ntpFactory
         );
     }
 
@@ -78,6 +81,46 @@ public class TelemetryServiceTests
         Assert.Equal(2, unreachableSample.StatusId);
         Assert.Null(unreachableSample.LatencyUs); // STRICT N/A RULE: Latency MUST be null on failure, never 0
         Assert.Equal(100f, unreachableSample.LossPercentage);
+    }
+
+    [Fact]
+    public async Task ExecuteReachabilitySweepAsync_ProbesMonitoredDevices_AndCalculatesNtpDrift_StrictNARule()
+    {
+        // Arrange
+        // Device 1: reachable with active NTP daemon (offset = -1250 us)
+        // Device 2: reachable without NTP daemon / timing out (offset = null)
+        // Device 3: unreachable (NTP not queried, offset = null)
+        _deviceRepo.AddDevice(new Device { DeviceId = 1, DisplayName = "CORE-R1", PrimaryIp = "10.0.0.1", MacAddress = "00:1A:2B:00:00:01", TypeId = 1, GroupId = 1, IsMonitored = true });
+        _deviceRepo.AddDevice(new Device { DeviceId = 2, DisplayName = "PLC-NO-NTP", PrimaryIp = "192.168.1.50", MacAddress = "00:1A:2B:00:00:02", TypeId = 5, GroupId = 1, IsMonitored = true });
+        _deviceRepo.AddDevice(new Device { DeviceId = 3, DisplayName = "DOWN-DEVICE", PrimaryIp = "10.0.0.99", MacAddress = "00:1A:2B:00:00:03", TypeId = 1, GroupId = 1, IsMonitored = true });
+
+        _probeFactory.ConfigureResult("10.0.0.1", new PingProbeResult(IsSuccess: true, LatencyUs: 300, LossPercentage: 0f));
+        _probeFactory.ConfigureResult("192.168.1.50", new PingProbeResult(IsSuccess: true, LatencyUs: 500, LossPercentage: 0f));
+        _probeFactory.ConfigureResult("10.0.0.99", new PingProbeResult(IsSuccess: false, LatencyUs: null, LossPercentage: 100f));
+
+        _ntpFactory.ConfigureResult("10.0.0.1", new NtpProbeResult(IsSuccess: true, OffsetUs: -1250));
+        _ntpFactory.ConfigureResult("192.168.1.50", new NtpProbeResult(IsSuccess: false, OffsetUs: null, ErrorMessage: "TimedOut"));
+
+        // Act
+        var result = await _telemetryService.ExecuteReachabilitySweepAsync();
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(3, result.PolledCount);
+        Assert.Equal(2, result.ReachableCount);
+        Assert.Equal(1, result.UnreachableCount);
+
+        var sample1 = _reachabilityRepo.SavedSamples.FirstOrDefault(s => s.DeviceId == 1);
+        Assert.NotNull(sample1);
+        Assert.Equal(-1250, sample1.NtpOffsetUs);
+
+        var sample2 = _reachabilityRepo.SavedSamples.FirstOrDefault(s => s.DeviceId == 2);
+        Assert.NotNull(sample2);
+        Assert.Null(sample2.NtpOffsetUs); // STRICT N/A RULE: Null for missing/timed-out NTP (never 0)
+
+        var sample3 = _reachabilityRepo.SavedSamples.FirstOrDefault(s => s.DeviceId == 3);
+        Assert.NotNull(sample3);
+        Assert.Null(sample3.NtpOffsetUs); // Unreachable node: strictly null
     }
 
     [Fact]
@@ -305,5 +348,31 @@ internal class StubPingStrategy : IPingStrategy
             LatencyUs: 150,
             LossPercentage: 0f
         ));
+    }
+}
+
+internal class StubNtpProbeFactory : INtpProbeFactory
+{
+    private readonly StubNtpStrategy _strategy = new();
+
+    public void ConfigureResult(string ip, NtpProbeResult result) => _strategy.ConfigureResult(ip, result);
+
+    public INtpStrategy CreateStrategy() => _strategy;
+}
+
+internal class StubNtpStrategy : INtpStrategy
+{
+    private readonly Dictionary<string, NtpProbeResult> _results = new();
+
+    public void ConfigureResult(string ip, NtpProbeResult result) => _results[ip] = result;
+
+    public Task<NtpProbeResult> QueryDriftAsync(string ipAddress, int timeoutMs = 1000, CancellationToken ct = default)
+    {
+        if (_results.TryGetValue(ipAddress, out var result))
+        {
+            return Task.FromResult(result);
+        }
+
+        return Task.FromResult(new NtpProbeResult(false, null, "NoConfiguredNtp"));
     }
 }

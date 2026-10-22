@@ -172,9 +172,11 @@
   - [x] Enforce Strict N/A rule: write `NULL` for missing/timed-out latency (never `0`).
   - [x] Bounded concurrency pool (`MaxDegreeOfParallelism = 50`) honoring the 500MB memory budget.
   - *Verification Proof*: Authored `TelemetryServiceTests.cs` (8 unit tests). Entire automated test suite expanded to 96 tests passing (`Total: 96, Passed: 96, Failed: 0`). Executed live verification against Kestrel server on `http://localhost:5000`: `POST /api/v1/telemetry/poll` executed non-blocking parallel sweeps across monitored devices; confirmed Strict N/A Rule with `latency_us: null` on unreachable nodes; provisioned local loopback host (`127.0.0.1`) and verified positive sub-millisecond measurement (`latency_us: 1441`, `status_code: REACHABLE`, `loss_percentage: 0`); verified `GET /api/v1/telemetry/summary`, `GET /api/v1/devices/{id}/telemetry/live`, and `GET /api/v1/devices/{id}/telemetry/history` adhering strictly to `api_contracts_specification.md` Section 7.
-- [ ] **4.2 UDP NTP Clock Drift Engine**:
-  - [ ] Implement raw UDP 48-byte NTP client on port 123.
-  - [ ] Compute microsecond clock drift (`ntp_offset_us`); write `NULL` on timeout.
+- [x] **4.2 UDP NTP Clock Drift Engine**:
+  - [x] Implement native asynchronous 48-byte UDP NTP client (RFC 4330 / RFC 5905) querying remote devices on UDP port 123 (`INtpStrategy`, `UdpSocketNtpStrategy`, `INtpProbeFactory`, `NtpProbeFactory`).
+  - [x] Compute microsecond clock drift ($\theta = \frac{(T_2 - T_1) + (T_3 - T_4)}{2}$) as signed 32-bit `ntp_offset_us`.
+  - [x] Enforce Strict N/A rule: write `NULL` for missing, unconfigured, or timed-out NTP metrics (never `0`).
+  - *Verification Proof*: Authored `ExecuteReachabilitySweepAsync_ProbesMonitoredDevices_AndCalculatesNtpDrift_StrictNARule` in `TelemetryServiceTests.cs`. Entire automated test suite expanded to 97 tests passing (`Total: 97, Passed: 97, Failed: 0`). Executed live verification against Kestrel server on `http://localhost:5000`: `POST /api/v1/telemetry/poll` queried reachable nodes, confirmed `ntp_offset_us: null` on nodes without active NTP service (never `0`), and verified `GET /api/v1/devices/{id}/telemetry/live` schema compliance.
 - [ ] **4.3 Cascading Failure Suppression Circuit**:
   - [ ] In-memory switch adjacency tree.
   - [ ] Automatically mark children `SUPPRESSED` on upstream switch failure.

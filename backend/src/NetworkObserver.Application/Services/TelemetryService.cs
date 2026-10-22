@@ -19,17 +19,20 @@ public class TelemetryService : ITelemetryService
     private readonly IReachabilityRepository _reachabilityRepository;
     private readonly IMonitoringConfigRepository _configRepository;
     private readonly IPingProbeFactory _probeFactory;
+    private readonly INtpProbeFactory _ntpProbeFactory;
 
     public TelemetryService(
         IDeviceRepository deviceRepository,
         IReachabilityRepository reachabilityRepository,
         IMonitoringConfigRepository configRepository,
-        IPingProbeFactory probeFactory)
+        IPingProbeFactory probeFactory,
+        INtpProbeFactory ntpProbeFactory)
     {
         _deviceRepository = deviceRepository;
         _reachabilityRepository = reachabilityRepository;
         _configRepository = configRepository;
         _probeFactory = probeFactory;
+        _ntpProbeFactory = ntpProbeFactory;
     }
 
     public async Task<PollSweepResultDto> ExecuteReachabilitySweepAsync(CancellationToken ct = default)
@@ -48,6 +51,7 @@ public class TelemetryService : ITelemetryService
 
         var samples = new ConcurrentBag<ReachabilitySample>();
         var pingStrategy = _probeFactory.CreateStrategy();
+        var ntpStrategy = _ntpProbeFactory.CreateStrategy();
 
         // Parallel non-blocking execution bounded to 50 concurrent sockets (bounded memory budget)
         var parallelOptions = new ParallelOptions
@@ -60,16 +64,27 @@ public class TelemetryService : ITelemetryService
 
         await Parallel.ForEachAsync(monitoredDevices, parallelOptions, async (device, token) =>
         {
-            var result = await pingStrategy.PingAsync(device.PrimaryIp, timeoutMs, token);
+            var pingResult = await pingStrategy.PingAsync(device.PrimaryIp, timeoutMs, token);
+
+            int? ntpOffsetUs = null;
+            if (pingResult.IsSuccess)
+            {
+                // Responsive nodes are queried asynchronously via RFC 1305/4330 NTP client requests (UDP port 123)
+                var ntpResult = await ntpStrategy.QueryDriftAsync(device.PrimaryIp, 1000, token);
+                if (ntpResult.IsSuccess)
+                {
+                    ntpOffsetUs = ntpResult.OffsetUs;
+                }
+            }
 
             var sample = new ReachabilitySample
             {
                 DeviceId = device.DeviceId,
                 RecordedAt = now,
-                StatusId = result.IsSuccess ? (short)1 : (short)2, // 1 = REACHABLE, 2 = UNREACHABLE
-                LatencyUs = result.LatencyUs,                      // Strictly NULL on failure (never 0)
-                LossPercentage = result.LossPercentage,
-                NtpOffsetUs = null,
+                StatusId = pingResult.IsSuccess ? (short)1 : (short)2, // 1 = REACHABLE, 2 = UNREACHABLE
+                LatencyUs = pingResult.LatencyUs,                      // Strictly NULL on failure (never 0)
+                LossPercentage = pingResult.LossPercentage,
+                NtpOffsetUs = ntpOffsetUs,                             // Strictly NULL on timeout or missing NTP (never 0)
                 IsSuppressed = false
             };
 

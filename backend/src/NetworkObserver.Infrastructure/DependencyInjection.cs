@@ -40,6 +40,7 @@ public static class DependencyInjection
 
         // Telemetry Engine & Raw Socket Probe Factory (Strategy & Factory Patterns)
         services.AddSingleton<NetworkObserver.Application.Interfaces.Telemetry.IPingProbeFactory, NetworkObserver.Infrastructure.Telemetry.PingProbeFactory>();
+        services.AddSingleton<NetworkObserver.Application.Interfaces.Telemetry.INtpProbeFactory, NetworkObserver.Infrastructure.Telemetry.NtpProbeFactory>();
 
         // Security, Argon2id Cryptography, and Session Management
         services.AddSingleton<IPasswordHasher, Argon2idPasswordHasher>();
