@@ -59,7 +59,7 @@ public class TelemetryServiceTests
     {
         // Arrange: Device 1 is reachable, Device 2 is unreachable, Device 3 is unmonitored
         _deviceRepo.AddDevice(new Device { DeviceId = 1, DisplayName = "CORE-R1", PrimaryIp = "10.0.0.1", MacAddress = "00:1A:2B:00:00:01", TypeId = 1, GroupId = 1, IsMonitored = true });
-        _deviceRepo.AddDevice(new Device { DeviceId = 2, DisplayName = "LEAF-PLC-1", PrimaryIp = "192.168.1.101", MacAddress = "00:1A:2B:00:00:02", TypeId = 5, GroupId = 1, IsMonitored = true });
+        _deviceRepo.AddDevice(new Device { DeviceId = 2, DisplayName = "LAB-PC-1", PrimaryIp = "192.168.1.101", MacAddress = "00:1A:2B:00:00:02", TypeId = 5, GroupId = 1, IsMonitored = true });
         _deviceRepo.AddDevice(new Device { DeviceId = 3, DisplayName = "UNMONITORED-PC", PrimaryIp = "10.0.0.50", MacAddress = "00:1A:2B:00:00:03", TypeId = 8, GroupId = 1, IsMonitored = false });
 
         // Configure probe factory: 10.0.0.1 succeeds with 450us, 192.168.1.101 times out (Strict N/A LatencyUs = null)
@@ -100,7 +100,7 @@ public class TelemetryServiceTests
         // Device 2: reachable without NTP daemon / timing out (offset = null)
         // Device 3: unreachable (NTP not queried, offset = null)
         _deviceRepo.AddDevice(new Device { DeviceId = 1, DisplayName = "CORE-R1", PrimaryIp = "10.0.0.1", MacAddress = "00:1A:2B:00:00:01", TypeId = 1, GroupId = 1, IsMonitored = true });
-        _deviceRepo.AddDevice(new Device { DeviceId = 2, DisplayName = "PLC-NO-NTP", PrimaryIp = "192.168.1.50", MacAddress = "00:1A:2B:00:00:02", TypeId = 5, GroupId = 1, IsMonitored = true });
+        _deviceRepo.AddDevice(new Device { DeviceId = 2, DisplayName = "LAB-PC-NO-NTP", PrimaryIp = "192.168.1.50", MacAddress = "00:1A:2B:00:00:02", TypeId = 5, GroupId = 1, IsMonitored = true });
         _deviceRepo.AddDevice(new Device { DeviceId = 3, DisplayName = "DOWN-DEVICE", PrimaryIp = "10.0.0.99", MacAddress = "00:1A:2B:00:00:03", TypeId = 1, GroupId = 1, IsMonitored = true });
 
         _probeFactory.ConfigureResult("10.0.0.1", new PingProbeResult(IsSuccess: true, LatencyUs: 300, LossPercentage: 0f));
@@ -139,11 +139,11 @@ public class TelemetryServiceTests
         // Topology DAG:
         // Device 1: Core Router (Root)
         // Device 2: Access Switch (Parent = 1)
-        // Device 3: Leaf PLC (Parent = 2)
+        // Device 3: Lab PC 1 (Parent = 2)
         // Device 4: Leaf PC (Parent = 2)
         _deviceRepo.AddDevice(new Device { DeviceId = 1, DisplayName = "CORE-R1", PrimaryIp = "10.0.0.1", MacAddress = "00:1A:2B:00:00:01", TypeId = 1, GroupId = 1, IsMonitored = true, ParentDeviceId = null });
         _deviceRepo.AddDevice(new Device { DeviceId = 2, DisplayName = "ACCESS-SW-1", PrimaryIp = "192.168.1.2", MacAddress = "00:1A:2B:00:00:02", TypeId = 3, GroupId = 1, IsMonitored = true, ParentDeviceId = 1 });
-        _deviceRepo.AddDevice(new Device { DeviceId = 3, DisplayName = "LEAF-PLC-1", PrimaryIp = "192.168.1.103", MacAddress = "00:1A:2B:00:00:03", TypeId = 5, GroupId = 1, IsMonitored = true, ParentDeviceId = 2 });
+        _deviceRepo.AddDevice(new Device { DeviceId = 3, DisplayName = "LAB-PC-1", PrimaryIp = "192.168.1.103", MacAddress = "00:1A:2B:00:00:03", TypeId = 5, GroupId = 1, IsMonitored = true, ParentDeviceId = 2 });
         _deviceRepo.AddDevice(new Device { DeviceId = 4, DisplayName = "LEAF-PC-1", PrimaryIp = "192.168.1.104", MacAddress = "00:1A:2B:00:00:04", TypeId = 5, GroupId = 1, IsMonitored = true, ParentDeviceId = 2 });
 
         // Core Router 1 is UP
@@ -159,7 +159,7 @@ public class TelemetryServiceTests
         Assert.Equal(4, result.PolledCount);
         Assert.Equal(1, result.ReachableCount);   // Core Router
         Assert.Equal(1, result.UnreachableCount); // Access Switch
-        Assert.Equal(2, result.SuppressedCount);  // Leaf PLC + Leaf PC
+        Assert.Equal(2, result.SuppressedCount);  // Lab PC 1 + Lab PC 2
 
         var samples = _reachabilityRepo.SavedSamples;
         Assert.Equal(4, samples.Count);
@@ -172,10 +172,10 @@ public class TelemetryServiceTests
         Assert.Equal(2, switchSample.StatusId); // UNREACHABLE
         Assert.False(switchSample.IsSuppressed);
 
-        var plcSample = samples.First(s => s.DeviceId == 3);
-        Assert.Equal(3, plcSample.StatusId); // SUPPRESSED
-        Assert.True(plcSample.IsSuppressed);
-        Assert.Null(plcSample.LatencyUs);     // Strict N/A Rule
+        var labPcSample = samples.First(s => s.DeviceId == 3);
+        Assert.Equal(3, labPcSample.StatusId); // SUPPRESSED
+        Assert.True(labPcSample.IsSuppressed);
+        Assert.Null(labPcSample.LatencyUs);     // Strict N/A Rule
 
         var pcSample = samples.First(s => s.DeviceId == 4);
         Assert.Equal(3, pcSample.StatusId);  // SUPPRESSED
@@ -206,7 +206,7 @@ public class TelemetryServiceTests
 
         _deviceRepo.AddDevice(new Device { DeviceId = 1, DisplayName = "CORE-R1", PrimaryIp = "10.0.0.1", MacAddress = "00:1A:2B:00:00:01", TypeId = 1, GroupId = 1, IsMonitored = true, ParentDeviceId = null });
         _deviceRepo.AddDevice(new Device { DeviceId = 2, DisplayName = "ACCESS-SW-1", PrimaryIp = "192.168.1.2", MacAddress = "00:1A:2B:00:00:02", TypeId = 3, GroupId = 1, IsMonitored = true, ParentDeviceId = 1 });
-        _deviceRepo.AddDevice(new Device { DeviceId = 3, DisplayName = "LEAF-PLC-1", PrimaryIp = "192.168.1.103", MacAddress = "00:1A:2B:00:00:03", TypeId = 5, GroupId = 1, IsMonitored = true, ParentDeviceId = 2 });
+        _deviceRepo.AddDevice(new Device { DeviceId = 3, DisplayName = "LAB-PC-1", PrimaryIp = "192.168.1.103", MacAddress = "00:1A:2B:00:00:03", TypeId = 5, GroupId = 1, IsMonitored = true, ParentDeviceId = 2 });
 
         _probeFactory.ConfigureResult("10.0.0.1", new PingProbeResult(IsSuccess: true, LatencyUs: 250, LossPercentage: 0f));
         _probeFactory.ConfigureResult("192.168.1.2", new PingProbeResult(IsSuccess: false, LatencyUs: null, LossPercentage: 100f));
@@ -246,7 +246,7 @@ public class TelemetryServiceTests
     {
         // Arrange
         _deviceRepo.AddDevice(new Device { DeviceId = 1, DisplayName = "CORE-R1", PrimaryIp = "10.0.0.1", MacAddress = "00:1A:2B:00:00:01", TypeId = 1, GroupId = 1, IsMonitored = true });
-        _deviceRepo.AddDevice(new Device { DeviceId = 2, DisplayName = "LEAF-PLC-1", PrimaryIp = "192.168.1.101", MacAddress = "00:1A:2B:00:00:02", TypeId = 5, GroupId = 1, IsMonitored = true });
+        _deviceRepo.AddDevice(new Device { DeviceId = 2, DisplayName = "LAB-PC-1", PrimaryIp = "192.168.1.101", MacAddress = "00:1A:2B:00:00:02", TypeId = 5, GroupId = 1, IsMonitored = true });
 
         _reachabilityRepo.SetSummary(new TelemetrySummaryDto(
             Timestamp: DateTimeOffset.UtcNow,
@@ -368,7 +368,7 @@ public class TelemetryServiceTests
     {
         // Arrange
         _deviceRepo.AddDevice(new Device { DeviceId = 1, DisplayName = "CORE-R1", PrimaryIp = "10.0.0.1", MacAddress = "00:1A:2B:00:00:01", TypeId = 1, GroupId = 1, IsMonitored = true });
-        _deviceRepo.AddDevice(new Device { DeviceId = 2, DisplayName = "SCADA-SERVER-1", PrimaryIp = "192.168.1.10", MacAddress = "00:1A:2B:00:00:02", TypeId = 4, GroupId = 1, IsMonitored = true });
+        _deviceRepo.AddDevice(new Device { DeviceId = 2, DisplayName = "LAB-AUTH-SERVER-1", PrimaryIp = "192.168.1.10", MacAddress = "00:1A:2B:00:00:02", TypeId = 4, GroupId = 1, IsMonitored = true });
         _deviceRepo.AddDevice(new Device { DeviceId = 3, DisplayName = "OPERATOR-PC-1", PrimaryIp = "192.168.1.50", MacAddress = "00:1A:2B:00:00:03", TypeId = 5, GroupId = 1, IsMonitored = true });
 
         // Core Router: Unsupported
@@ -419,7 +419,7 @@ public class TelemetryServiceTests
     public async Task GetLiveTelemetryAsync_WhenHealthSampleExists_PopulatesHostLayerAndDiskVolumes()
     {
         // Arrange
-        _deviceRepo.AddDevice(new Device { DeviceId = 2, DisplayName = "SCADA-SERVER-1", PrimaryIp = "192.168.1.10", MacAddress = "00:1A:2B:00:00:02", TypeId = 4, GroupId = 1 });
+        _deviceRepo.AddDevice(new Device { DeviceId = 2, DisplayName = "LAB-AUTH-SERVER-1", PrimaryIp = "192.168.1.10", MacAddress = "00:1A:2B:00:00:02", TypeId = 4, GroupId = 1 });
         var now = DateTimeOffset.UtcNow;
 
         _reachabilityRepo.SetLatestSample(2, new ReachabilitySample
@@ -458,16 +458,16 @@ public class TelemetryServiceTests
         // 2: Aggregate Switch (Parent = 1)
         // 3: Access Switch A (Parent = 2)
         // Leaf Endpoints on Access Switch 3:
-        // 10: PLC 1
-        // 11: PLC 2
+        // 10: Lab PC 1
+        // 11: Lab PC 2
         // 12: PC 1
         // 13: PC 2
         _deviceRepo.AddDevice(new Device { DeviceId = 1, DisplayName = "CORE-R1", PrimaryIp = "10.0.0.1", MacAddress = "00:1A:2B:00:00:01", TypeId = 1, GroupId = 1, ParentDeviceId = null, IsMonitored = true });
         _deviceRepo.AddDevice(new Device { DeviceId = 2, DisplayName = "AGG-SW-1", PrimaryIp = "10.0.0.2", MacAddress = "00:1A:2B:00:00:02", TypeId = 2, GroupId = 1, ParentDeviceId = 1, IsMonitored = true });
         _deviceRepo.AddDevice(new Device { DeviceId = 3, DisplayName = "ACCESS-SW-A", PrimaryIp = "192.168.1.10", MacAddress = "00:1A:2B:00:00:03", TypeId = 3, GroupId = 1, ParentDeviceId = 2, IsMonitored = true });
 
-        _deviceRepo.AddDevice(new Device { DeviceId = 10, DisplayName = "PLC-1", PrimaryIp = "192.168.1.101", MacAddress = "00:1A:2B:00:00:10", TypeId = 5, GroupId = 1, ParentDeviceId = 3, IsMonitored = true });
-        _deviceRepo.AddDevice(new Device { DeviceId = 11, DisplayName = "PLC-2", PrimaryIp = "192.168.1.102", MacAddress = "00:1A:2B:00:00:11", TypeId = 5, GroupId = 1, ParentDeviceId = 3, IsMonitored = true });
+        _deviceRepo.AddDevice(new Device { DeviceId = 10, DisplayName = "LAB101-PC-1", PrimaryIp = "192.168.1.101", MacAddress = "00:1A:2B:00:00:10", TypeId = 5, GroupId = 1, ParentDeviceId = 3, IsMonitored = true });
+        _deviceRepo.AddDevice(new Device { DeviceId = 11, DisplayName = "LAB101-PC-2", PrimaryIp = "192.168.1.102", MacAddress = "00:1A:2B:00:00:11", TypeId = 5, GroupId = 1, ParentDeviceId = 3, IsMonitored = true });
         _deviceRepo.AddDevice(new Device { DeviceId = 12, DisplayName = "PC-1", PrimaryIp = "192.168.1.103", MacAddress = "00:1A:2B:00:00:12", TypeId = 5, GroupId = 1, ParentDeviceId = 3, IsMonitored = true });
         _deviceRepo.AddDevice(new Device { DeviceId = 13, DisplayName = "PC-2", PrimaryIp = "192.168.1.104", MacAddress = "00:1A:2B:00:00:13", TypeId = 5, GroupId = 1, ParentDeviceId = 3, IsMonitored = true });
 
@@ -509,13 +509,13 @@ public class TelemetryServiceTests
         Assert.Equal(2, accSw.EndpointBranches.BranchLeft.Count);
         Assert.Equal(2, accSw.EndpointBranches.BranchRight.Count);
 
-        // Branch Left: PLC-1 (index 0) and PC-1 (index 1)
+        // Branch Left: LAB101-PC-1 (index 0) and PC-1 (index 1)
         Assert.Equal(10, accSw.EndpointBranches.BranchLeft[0].DeviceId);
         Assert.Equal(0, accSw.EndpointBranches.BranchLeft[0].BranchIndex);
         Assert.Equal(12, accSw.EndpointBranches.BranchLeft[1].DeviceId);
         Assert.Equal(1, accSw.EndpointBranches.BranchLeft[1].BranchIndex);
 
-        // Branch Right: PLC-2 (index 0) and PC-2 (index 1)
+        // Branch Right: LAB101-PC-2 (index 0) and PC-2 (index 1)
         Assert.Equal(11, accSw.EndpointBranches.BranchRight[0].DeviceId);
         Assert.Equal(0, accSw.EndpointBranches.BranchRight[0].BranchIndex);
         Assert.Equal(13, accSw.EndpointBranches.BranchRight[1].DeviceId);

@@ -8,7 +8,7 @@ namespace NetworkObserver.Application.Services;
 /// High-performance implementation of the Cascading Failure Suppression Circuit.
 /// Maintains an in-memory switch-device DAG to detect parent outages and immediately
 /// halt synthetic ICMP & NTP probes to downstream branches.
-/// Eliminates network packet storms and industrial PLC lockups (FR-CAS-01 - FR-CAS-04).
+/// Eliminates network packet storms and computer lab workstation / switch lockups (FR-CAS-01 - FR-CAS-04).
 /// </summary>
 public class CascadeSuppressionCircuit : ICascadeSuppressionCircuit
 {

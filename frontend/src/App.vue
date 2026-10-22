@@ -75,10 +75,10 @@ onMounted(async () => {
           <h1 class="text-sm font-semibold tracking-wider uppercase text-slate-100 flex items-center gap-2">
             Network Observer
             <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-tactical-panel border border-tactical-border text-tactical-cyan">
-              v2.2-SCADA
+              v2.2-CAMPUS
             </span>
           </h1>
-          <p class="text-[10px] font-mono text-slate-400">AIR-GAPPED INDUSTRIAL ENCLAVE NOC</p>
+          <p class="text-[10px] font-mono text-slate-400">UNIVERSITY & ENTERPRISE COMPUTER LAB NOC</p>
         </div>
       </div>
 

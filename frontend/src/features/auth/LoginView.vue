@@ -47,13 +47,13 @@ async function handleLogin() {
               v2.2
             </span>
           </h1>
-          <p class="text-[11px] font-mono text-slate-400 mt-0.5">INDUSTRIAL LAN TELEMETRY & TOPOLOGY PLATFORM</p>
+          <p class="text-[11px] font-mono text-slate-400 mt-0.5">CAMPUS & ENTERPRISE LAN TELEMETRY PLATFORM</p>
         </div>
 
         <!-- Air-Gap Status Banner -->
         <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-tactical-panel border border-tactical-online/30 text-[10px] font-mono text-tactical-online">
           <span class="w-2 h-2 rounded-full bg-tactical-online animate-ping"></span>
-          <span class="font-bold tracking-wide">ENCLAVE: PRIMARY SITE | 100% AIR-GAP SECURE</span>
+          <span class="font-bold tracking-wide">ENCLAVE: UNIVERSITY LABS | SECURE CAMPUS NOC</span>
         </div>
       </div>
 
@@ -117,7 +117,7 @@ async function handleLogin() {
           <span class="text-[10px] uppercase font-bold text-slate-500">Target Enclave:</span>
           <span class="text-tactical-cyan font-mono font-semibold flex items-center gap-1">
             <ShieldCheck class="w-3.5 h-3.5 text-tactical-cyan" />
-            Site 01 (SCADA / Primary)
+            Site 01 (Campus Central / Academic Labs)
           </span>
         </div>
 
@@ -140,7 +140,7 @@ async function handleLogin() {
 
       <!-- Footer Policy Note -->
       <div class="mt-6 pt-4 border-t border-tactical-border text-center text-[10px] font-mono text-slate-500 space-y-1">
-        <p>Restricted Mission-Critical SCADA Enclave</p>
+        <p>Campus Computing & Enterprise Lab Network</p>
         <p class="text-[9px] text-slate-600">Zero Public Self-Registration | RFC 9106 Argon2id Cryptography</p>
       </div>
 

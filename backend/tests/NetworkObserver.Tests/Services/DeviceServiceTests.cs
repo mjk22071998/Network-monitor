@@ -48,7 +48,7 @@ public class DeviceServiceTests
     public async Task GetDeviceByIdAsync_WhenExists_ReturnsDetail()
     {
         // Arrange
-        _deviceRepo.AddDevice(new Device { DeviceId = 10, DisplayName = "PLC-01", PrimaryIp = "192.168.1.101", MacAddress = "00:1A:2B:AA:01:05", TypeId = 5, GroupId = 3 });
+        _deviceRepo.AddDevice(new Device { DeviceId = 10, DisplayName = "LAB101-PC-01", PrimaryIp = "192.168.1.101", MacAddress = "00:1A:2B:AA:01:05", TypeId = 5, GroupId = 3 });
 
         // Act
         var result = await _deviceService.GetDeviceByIdAsync(10);
@@ -56,7 +56,7 @@ public class DeviceServiceTests
         // Assert
         Assert.NotNull(result);
         Assert.Equal(10, result.DeviceId);
-        Assert.Equal("PLC-01", result.DisplayName);
+        Assert.Equal("LAB101-PC-01", result.DisplayName);
         Assert.Equal("PC", result.TypeCode);
     }
 
@@ -220,7 +220,7 @@ public class DeviceServiceTests
         _deviceRepo.AddDevice(new Device
         {
             DeviceId = 54,
-            DisplayName = "PLC-01",
+            DisplayName = "LAB101-PC-01",
             PrimaryIp = "192.168.1.104",
             MacAddress = "00:1A:2B:AA:01:08",
             TypeId = 5,
@@ -228,7 +228,7 @@ public class DeviceServiceTests
         });
 
         var request = new UpdateDeviceRequest(
-            DisplayName: "PLC-01-REV2",
+            DisplayName: "LAB101-PC-01-REV2",
             PrimaryIp: "192.168.1.120",
             TypeId: 5,
             GroupId: 3,
@@ -253,7 +253,7 @@ public class DeviceServiceTests
         _deviceRepo.AddDevice(new Device
         {
             DeviceId = 54,
-            DisplayName = "PLC-01",
+            DisplayName = "LAB101-PC-01",
             PrimaryIp = "192.168.1.104",
             MacAddress = "00:1A:2B:AA:01:08",
             TypeId = 5,
@@ -261,7 +261,7 @@ public class DeviceServiceTests
         });
 
         var request = new UpdateDeviceRequest(
-            DisplayName: "PLC-LINE-A-04-REV2",
+            DisplayName: "LAB101-PC-04-REV2",
             PrimaryIp: "192.168.1.120",
             TypeId: 5,
             GroupId: 3,
@@ -278,7 +278,7 @@ public class DeviceServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal("PLC-LINE-A-04-REV2", result.DisplayName);
+        Assert.Equal("LAB101-PC-04-REV2", result.DisplayName);
         Assert.Equal("192.168.1.120", result.PrimaryIp);
         Assert.Equal("00:1A:2B:AA:01:08", result.MacAddress);
     }
@@ -288,8 +288,8 @@ public class DeviceServiceTests
     {
         // Arrange
         var sw = new Device { DeviceId = 3, DisplayName = "ACCESS-SW-A", TypeId = (short)DeviceTypeEnum.AccessSwitch, GroupId = 1, MacAddress = "00:11:22:33:44:55", PrimaryIp = "192.168.1.10" };
-        var c1 = new Device { DeviceId = 10, DisplayName = "PLC-1", ParentDeviceId = 3, TypeId = 5, GroupId = 1, MacAddress = "00:11:22:33:44:56", PrimaryIp = "192.168.1.11" };
-        var c2 = new Device { DeviceId = 11, DisplayName = "PLC-2", ParentDeviceId = 3, TypeId = 5, GroupId = 1, MacAddress = "00:11:22:33:44:57", PrimaryIp = "192.168.1.12" };
+        var c1 = new Device { DeviceId = 10, DisplayName = "LAB101-PC-1", ParentDeviceId = 3, TypeId = 5, GroupId = 1, MacAddress = "00:11:22:33:44:56", PrimaryIp = "192.168.1.11" };
+        var c2 = new Device { DeviceId = 11, DisplayName = "LAB101-PC-2", ParentDeviceId = 3, TypeId = 5, GroupId = 1, MacAddress = "00:11:22:33:44:57", PrimaryIp = "192.168.1.12" };
 
         _deviceRepo.AddDevice(sw);
         _deviceRepo.AddDevice(c1);

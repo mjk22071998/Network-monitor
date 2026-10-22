@@ -173,7 +173,7 @@ public class TelemetryService : ITelemetryService
 
         // Partition devices into infrastructure vs leaf endpoints
         // Infrastructure: TypeId 1 (Core Router), 2 (Aggregate Switch), 3 (Access Switch)
-        // Endpoints: TypeId 4 (Server), 5 (PC/PLC), or any other
+        // Endpoints: TypeId 4 (Lab/Domain Server), 5 (Workstation PC), or any other
         var infraDevices = devices.Where(d => d.TypeId is 1 or 2 or 3).ToList();
         var endpointDevices = devices.Where(d => d.TypeId is not (1 or 2 or 3)).ToList();
 

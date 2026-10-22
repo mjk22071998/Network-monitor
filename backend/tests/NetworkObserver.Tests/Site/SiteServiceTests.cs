@@ -70,9 +70,9 @@ public class SiteServiceTests
         _siteRepo.SetSite(existingSite);
 
         var request = new UpdateSiteRequest(
-            SiteName: "Reactor Unit 4 Control Facility",
-            FacilityCode: "FAC-R4-SCADA",
-            Description: "Sealed industrial SCADA and PLC control network"
+            SiteName: "University Central Campus",
+            FacilityCode: "CAMPUS-MAIN-01",
+            Description: "Main Academic Computing & Computer Labs Enclave"
         );
 
         // Act
@@ -81,14 +81,14 @@ public class SiteServiceTests
         // Assert
         Assert.NotNull(result);
         Assert.Equal(1, result.SiteId);
-        Assert.Equal("Reactor Unit 4 Control Facility", result.SiteName);
-        Assert.Equal("FAC-R4-SCADA", result.FacilityCode);
-        Assert.Equal("Sealed industrial SCADA and PLC control network", result.Description);
+        Assert.Equal("University Central Campus", result.SiteName);
+        Assert.Equal("CAMPUS-MAIN-01", result.FacilityCode);
+        Assert.Equal("Main Academic Computing & Computer Labs Enclave", result.Description);
 
         var stored = await _siteRepo.GetActiveSiteAsync();
         Assert.NotNull(stored);
-        Assert.Equal("Reactor Unit 4 Control Facility", stored.SiteName);
-        Assert.Equal("FAC-R4-SCADA", stored.FacilityCode);
+        Assert.Equal("University Central Campus", stored.SiteName);
+        Assert.Equal("CAMPUS-MAIN-01", stored.FacilityCode);
     }
 
     [Theory]
