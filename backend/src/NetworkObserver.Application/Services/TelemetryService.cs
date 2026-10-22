@@ -166,6 +166,131 @@ public class TelemetryService : ITelemetryService
         );
     }
 
+    public async Task<TopologyTreeDto> GetTopologyTreeAsync(CancellationToken ct = default)
+    {
+        var (devices, _) = await _deviceRepository.GetPagedAsync(new DeviceQueryParameters(Limit: 1000), ct);
+        var latestSamples = await _reachabilityRepository.GetLatestForMonitoredDevicesAsync(ct);
+
+        // Partition devices into infrastructure vs leaf endpoints
+        // Infrastructure: TypeId 1 (Core Router), 2 (Aggregate Switch), 3 (Access Switch)
+        // Endpoints: TypeId 4 (Server), 5 (PC/PLC), or any other
+        var infraDevices = devices.Where(d => d.TypeId is 1 or 2 or 3).ToList();
+        var endpointDevices = devices.Where(d => d.TypeId is not (1 or 2 or 3)).ToList();
+
+        // Map leaf endpoints by parent switch
+        var endpointsByParent = endpointDevices
+            .Where(e => e.ParentDeviceId.HasValue)
+            .GroupBy(e => e.ParentDeviceId!.Value)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        // Children infrastructure nodes by parent
+        var infraChildrenByParent = infraDevices
+            .Where(d => d.ParentDeviceId.HasValue)
+            .GroupBy(d => d.ParentDeviceId!.Value)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        // Identify root infrastructure nodes (ParentDeviceId == null or parent not in infraDevices)
+        var infraIds = new HashSet<int>(infraDevices.Select(d => d.DeviceId));
+        var rootDevices = infraDevices
+            .Where(d => !d.ParentDeviceId.HasValue || !infraIds.Contains(d.ParentDeviceId.Value))
+            .ToList();
+
+        // Fallback: If no infra devices, treat root endpoint devices as root nodes
+        if (rootDevices.Count == 0 && devices.Count > 0)
+        {
+            rootDevices = devices.Where(d => !d.ParentDeviceId.HasValue).ToList();
+        }
+
+        var visited = new HashSet<int>();
+        var rootNodes = rootDevices
+            .Select(d => BuildTopologyNode(d, infraChildrenByParent, endpointsByParent, latestSamples, visited))
+            .ToList();
+
+        return new TopologyTreeDto(
+            GeneratedAt: DateTimeOffset.UtcNow,
+            RootNodes: rootNodes
+        );
+    }
+
+    private TopologyNodeDto BuildTopologyNode(
+        Device device,
+        Dictionary<int, List<Device>> infraChildren,
+        Dictionary<int, List<Device>> endpointsByParent,
+        IReadOnlyDictionary<int, ReachabilitySample> latestSamples,
+        HashSet<int> visited)
+    {
+        visited.Add(device.DeviceId);
+
+        latestSamples.TryGetValue(device.DeviceId, out var sample);
+        var statusCode = sample != null
+            ? GetStatusCode(sample.StatusId)
+            : (device.IsMonitored ? "UNKNOWN" : "UNMONITORED");
+
+        EndpointBranchesDto? endpointBranches = null;
+        if (endpointsByParent.TryGetValue(device.DeviceId, out var endpoints) && endpoints.Count > 0)
+        {
+            var left = new List<TopologyEndpointDto>();
+            var right = new List<TopologyEndpointDto>();
+
+            for (int i = 0; i < endpoints.Count; i++)
+            {
+                var ep = endpoints[i];
+                latestSamples.TryGetValue(ep.DeviceId, out var epSample);
+                var epStatus = epSample != null
+                    ? GetStatusCode(epSample.StatusId)
+                    : (ep.IsMonitored ? "UNKNOWN" : "UNMONITORED");
+
+                var endpointDto = new TopologyEndpointDto(
+                    DeviceId: ep.DeviceId,
+                    PrimaryIp: ep.PrimaryIp,
+                    DisplayName: ep.DisplayName,
+                    StatusCode: epStatus,
+                    LatencyUs: epSample?.LatencyUs,
+                    BranchIndex: i / 2
+                );
+
+                if (i % 2 == 0) left.Add(endpointDto);
+                else right.Add(endpointDto);
+            }
+
+            endpointBranches = new EndpointBranchesDto(left, right);
+        }
+
+        var children = new List<TopologyNodeDto>();
+        if (infraChildren.TryGetValue(device.DeviceId, out var directChildren))
+        {
+            foreach (var child in directChildren)
+            {
+                if (!visited.Contains(child.DeviceId))
+                {
+                    children.Add(BuildTopologyNode(child, infraChildren, endpointsByParent, latestSamples, visited));
+                }
+            }
+        }
+
+        return new TopologyNodeDto(
+            DeviceId: device.DeviceId,
+            MacAddress: device.MacAddress,
+            PrimaryIp: device.PrimaryIp,
+            DisplayName: device.DisplayName,
+            TypeCode: GetDeviceTypeCode(device.TypeId),
+            StatusCode: statusCode,
+            LatencyUs: sample?.LatencyUs,
+            Children: children,
+            EndpointBranches: endpointBranches
+        );
+    }
+
+    private static string GetDeviceTypeCode(short typeId) => typeId switch
+    {
+        1 => "CORE_ROUTER",
+        2 => "AGGREGATE_SWITCH",
+        3 => "ACCESS_SWITCH",
+        4 => "SERVER",
+        5 => "PC",
+        _ => "OTHER"
+    };
+
     public async Task<DeviceLiveTelemetryDto> GetLiveTelemetryAsync(int deviceId, CancellationToken ct = default)
     {
         var device = await _deviceRepository.GetByIdAsync(deviceId, ct);

@@ -40,6 +40,21 @@ public class TelemetryController : ControllerBase
     }
 
     /// <summary>
+    /// Fetch Hierarchical Topology Tree.
+    /// Delivers logical graph hierarchy with cached reachability and 2-branch access switch layout.
+    /// Accessible to all authenticated operational roles.
+    /// </summary>
+    [HttpGet("topology")]
+    [AuthorizeRole(RoleType.NetworkAdmin, RoleType.NetworkEngineer, RoleType.ItSupport)]
+    [ProducesResponseType(typeof(TopologyTreeDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetTopologyTree(CancellationToken ct)
+    {
+        var topology = await _telemetryService.GetTopologyTreeAsync(ct);
+        return Ok(topology);
+    }
+
+    /// <summary>
     /// Triggers an immediate concurrent raw socket ICMP reachability sweep across all monitored devices.
     /// Bounded to 50 concurrent sockets within the 500MB RAM budget.
     /// Accessible to NetworkAdmin and NetworkEngineer.
@@ -78,6 +93,7 @@ public class TelemetryController : ControllerBase
     /// Accessible to all authenticated operational roles.
     /// </summary>
     [HttpGet("devices/{id:int}/telemetry/live")]
+    [HttpGet("telemetry/{id:int}")]
     [AuthorizeRole(RoleType.NetworkAdmin, RoleType.NetworkEngineer, RoleType.ItSupport)]
     [ProducesResponseType(typeof(DeviceLiveTelemetryDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
@@ -94,6 +110,7 @@ public class TelemetryController : ControllerBase
     /// Accessible to all authenticated operational roles.
     /// </summary>
     [HttpGet("devices/{id:int}/telemetry/history")]
+    [HttpGet("telemetry/{id:int}/history")]
     [AuthorizeRole(RoleType.NetworkAdmin, RoleType.NetworkEngineer, RoleType.ItSupport)]
     [ProducesResponseType(typeof(DeviceHistoryTelemetryDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]

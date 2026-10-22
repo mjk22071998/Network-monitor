@@ -448,6 +448,79 @@ public class TelemetryServiceTests
         Assert.Single(live.HostLayer.DiskVolumes);
         Assert.Equal("C:", live.HostLayer.DiskVolumes[0].VolumeName);
     }
+
+    [Fact]
+    public async Task GetTopologyTreeAsync_ReturnsTwoBranchAccessSwitchHierarchy()
+    {
+        // Arrange
+        // Infrastructure:
+        // 1: Core Router (Root)
+        // 2: Aggregate Switch (Parent = 1)
+        // 3: Access Switch A (Parent = 2)
+        // Leaf Endpoints on Access Switch 3:
+        // 10: PLC 1
+        // 11: PLC 2
+        // 12: PC 1
+        // 13: PC 2
+        _deviceRepo.AddDevice(new Device { DeviceId = 1, DisplayName = "CORE-R1", PrimaryIp = "10.0.0.1", MacAddress = "00:1A:2B:00:00:01", TypeId = 1, GroupId = 1, ParentDeviceId = null, IsMonitored = true });
+        _deviceRepo.AddDevice(new Device { DeviceId = 2, DisplayName = "AGG-SW-1", PrimaryIp = "10.0.0.2", MacAddress = "00:1A:2B:00:00:02", TypeId = 2, GroupId = 1, ParentDeviceId = 1, IsMonitored = true });
+        _deviceRepo.AddDevice(new Device { DeviceId = 3, DisplayName = "ACCESS-SW-A", PrimaryIp = "192.168.1.10", MacAddress = "00:1A:2B:00:00:03", TypeId = 3, GroupId = 1, ParentDeviceId = 2, IsMonitored = true });
+
+        _deviceRepo.AddDevice(new Device { DeviceId = 10, DisplayName = "PLC-1", PrimaryIp = "192.168.1.101", MacAddress = "00:1A:2B:00:00:10", TypeId = 5, GroupId = 1, ParentDeviceId = 3, IsMonitored = true });
+        _deviceRepo.AddDevice(new Device { DeviceId = 11, DisplayName = "PLC-2", PrimaryIp = "192.168.1.102", MacAddress = "00:1A:2B:00:00:11", TypeId = 5, GroupId = 1, ParentDeviceId = 3, IsMonitored = true });
+        _deviceRepo.AddDevice(new Device { DeviceId = 12, DisplayName = "PC-1", PrimaryIp = "192.168.1.103", MacAddress = "00:1A:2B:00:00:12", TypeId = 5, GroupId = 1, ParentDeviceId = 3, IsMonitored = true });
+        _deviceRepo.AddDevice(new Device { DeviceId = 13, DisplayName = "PC-2", PrimaryIp = "192.168.1.104", MacAddress = "00:1A:2B:00:00:13", TypeId = 5, GroupId = 1, ParentDeviceId = 3, IsMonitored = true });
+
+        var now = DateTimeOffset.UtcNow;
+        _reachabilityRepo.SetLatestSample(1, new ReachabilitySample { DeviceId = 1, RecordedAt = now, StatusId = 1, LatencyUs = 200 });
+        _reachabilityRepo.SetLatestSample(2, new ReachabilitySample { DeviceId = 2, RecordedAt = now, StatusId = 1, LatencyUs = 400 });
+        _reachabilityRepo.SetLatestSample(3, new ReachabilitySample { DeviceId = 3, RecordedAt = now, StatusId = 1, LatencyUs = 600 });
+        _reachabilityRepo.SetLatestSample(10, new ReachabilitySample { DeviceId = 10, RecordedAt = now, StatusId = 1, LatencyUs = 1200 });
+        _reachabilityRepo.SetLatestSample(11, new ReachabilitySample { DeviceId = 11, RecordedAt = now, StatusId = 1, LatencyUs = 1300 });
+        _reachabilityRepo.SetLatestSample(12, new ReachabilitySample { DeviceId = 12, RecordedAt = now, StatusId = 1, LatencyUs = 1400 });
+        _reachabilityRepo.SetLatestSample(13, new ReachabilitySample { DeviceId = 13, RecordedAt = now, StatusId = 1, LatencyUs = 1500 });
+
+        // Act
+        var topology = await _telemetryService.GetTopologyTreeAsync();
+
+        // Assert
+        Assert.NotNull(topology);
+        Assert.Single(topology.RootNodes);
+
+        var root = topology.RootNodes[0];
+        Assert.Equal(1, root.DeviceId);
+        Assert.Equal("CORE_ROUTER", root.TypeCode);
+        Assert.Equal("REACHABLE", root.StatusCode);
+        Assert.Equal(200, root.LatencyUs);
+        Assert.Single(root.Children);
+
+        var aggSw = root.Children[0];
+        Assert.Equal(2, aggSw.DeviceId);
+        Assert.Equal("AGGREGATE_SWITCH", aggSw.TypeCode);
+        Assert.Single(aggSw.Children);
+
+        var accSw = aggSw.Children[0];
+        Assert.Equal(3, accSw.DeviceId);
+        Assert.Equal("ACCESS_SWITCH", accSw.TypeCode);
+        Assert.Empty(accSw.Children); // No sub-switches
+
+        // Verify 2-Branch Layout Guarantee
+        Assert.NotNull(accSw.EndpointBranches);
+        Assert.Equal(2, accSw.EndpointBranches.BranchLeft.Count);
+        Assert.Equal(2, accSw.EndpointBranches.BranchRight.Count);
+
+        // Branch Left: PLC-1 (index 0) and PC-1 (index 1)
+        Assert.Equal(10, accSw.EndpointBranches.BranchLeft[0].DeviceId);
+        Assert.Equal(0, accSw.EndpointBranches.BranchLeft[0].BranchIndex);
+        Assert.Equal(12, accSw.EndpointBranches.BranchLeft[1].DeviceId);
+        Assert.Equal(1, accSw.EndpointBranches.BranchLeft[1].BranchIndex);
+
+        // Branch Right: PLC-2 (index 0) and PC-2 (index 1)
+        Assert.Equal(11, accSw.EndpointBranches.BranchRight[0].DeviceId);
+        Assert.Equal(0, accSw.EndpointBranches.BranchRight[0].BranchIndex);
+        Assert.Equal(13, accSw.EndpointBranches.BranchRight[1].DeviceId);
+        Assert.Equal(1, accSw.EndpointBranches.BranchRight[1].BranchIndex);
+    }
 }
 
 // ==========================================

@@ -73,6 +73,37 @@ public record HealthSweepResultDto(
     DateTimeOffset CompletedAt
 );
 
+public record TopologyEndpointDto(
+    int DeviceId,
+    string PrimaryIp,
+    string DisplayName,
+    string StatusCode,
+    int? LatencyUs,
+    int BranchIndex
+);
+
+public record EndpointBranchesDto(
+    IReadOnlyList<TopologyEndpointDto> BranchLeft,
+    IReadOnlyList<TopologyEndpointDto> BranchRight
+);
+
+public record TopologyNodeDto(
+    int DeviceId,
+    string MacAddress,
+    string PrimaryIp,
+    string DisplayName,
+    string TypeCode,
+    string StatusCode,
+    int? LatencyUs,
+    IReadOnlyList<TopologyNodeDto> Children,
+    EndpointBranchesDto? EndpointBranches
+);
+
+public record TopologyTreeDto(
+    DateTimeOffset GeneratedAt,
+    IReadOnlyList<TopologyNodeDto> RootNodes
+);
+
 public record ReachabilityHistoryPointDto(
     DateTimeOffset Timestamp,
     short StatusId,

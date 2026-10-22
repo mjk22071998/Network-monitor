@@ -11,6 +11,7 @@ public interface ITelemetryService
     Task<PollSweepResultDto> ExecuteReachabilitySweepAsync(CancellationToken ct = default);
     Task<HealthSweepResultDto> ExecuteHealthSweepAsync(CancellationToken ct = default);
     Task<TelemetrySummaryDto> GetSummaryAsync(CancellationToken ct = default);
+    Task<TopologyTreeDto> GetTopologyTreeAsync(CancellationToken ct = default);
     Task<DeviceLiveTelemetryDto> GetLiveTelemetryAsync(int deviceId, CancellationToken ct = default);
     Task<DeviceHistoryTelemetryDto> GetTelemetryHistoryAsync(int deviceId, DateTimeOffset start, DateTimeOffset end, string interval, CancellationToken ct = default);
 }

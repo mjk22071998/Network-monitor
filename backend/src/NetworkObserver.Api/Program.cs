@@ -22,6 +22,9 @@ builder.Services.AddApplication();
 // Tier 4: Register Infrastructure Layer (PostgreSQL EF Core DbContext, Repositories, Security & Services)
 builder.Services.AddInfrastructure(builder.Configuration);
 
+// Background Workers (Continuous 5s/30s Telemetry & Host Health Polling Daemon)
+builder.Services.AddHostedService<NetworkObserver.Api.HostedServices.TelemetryPollingBackgroundService>();
+
 var app = builder.Build();
 
 // Standardized Error Envelope Middleware (catches all exceptions and formats uniform JSON)

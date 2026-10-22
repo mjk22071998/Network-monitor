@@ -162,7 +162,7 @@
 ---
 
 ### Phase 4: High-Performance Multithreaded Telemetry Poller
-**Status:** `IN PROGRESS (Step 4.1 Complete & Verified)`  
+**Status:** `100% COMPLETE & VERIFIED`  
 **Roadmap Reference:** [`project_implementation_roadmap_and_phases.md` § Phase 4](file:///d:/FullStackProjects/Network%20monitor/project_implementation_roadmap_and_phases.md#phase-4-high-performance-multithreaded-telemetry-poller)  
 **SRS Reference:** [`master_software_requirements_specification.md` § 5.4–5.6](file:///d:/FullStackProjects/Network%20monitor/master_software_requirements_specification.md)
 
@@ -190,12 +190,17 @@
   - [x] Strict N/A Rule: all metrics recorded as `NULL` on failure/unsupported (never `0`).
   - [x] Range-partitioned persistence via `IHealthRepository` / `HealthRepository`.
   - *Verification Proof*: Authored `ExecuteHealthSweepAsync_ProbesMonitoredEndpoints_AndPersistsMultiVolumeDiskStorage` and `GetLiveTelemetryAsync_WhenHealthSampleExists_PopulatesHostLayerAndDiskVolumes` in `TelemetryServiceTests.cs`. Entire automated test suite expanded to 101 tests passing (`Total: 101, Passed: 101, Failed: 0`). Executed live verification against Kestrel server: `POST /api/v1/telemetry/health/poll` executed decoupled health sweeps across provisioned enclave devices; `GET /api/v1/devices/1/telemetry/live` verified `UNSUPPORTED` classification for Core Router with null metrics; `GET /api/v1/devices/3/telemetry/live` verified `UNAVAILABLE` classification for Leaf endpoint with null metrics; `GET /api/v1/telemetry/summary` verified `host_health` HUD object aggregation.
-- [ ] **4.5 Micro-Batch Ingestion**:
-  - [ ] Batch ICMP results into 1-second micro-transactions into partitioned tables.
-- [ ] **4.6 Telemetry & Topology API Endpoints**:
-  - [ ] `GET /api/v1/topology`: Return 2-branch logical tree and top HUD counters.
-  - [ ] `GET /api/v1/telemetry/{id}`: Return live inspector metrics.
-  - [ ] `GET /api/v1/telemetry/{id}/history`: Return time-series latency samples.
+- [x] **4.5 Micro-Batch Ingestion**:
+  - [x] Continuous background scheduling engine (`TelemetryPollingBackgroundService : BackgroundService`).
+  - [x] Independent cadences dynamically read from database: 5-second ICMP reachability and 30-second host health.
+  - [x] Micro-batch persistence into PostgreSQL range-partitioned tables (`reachability_samples`, `health_samples`, `disk_volume_samples`).
+  - [x] Non-reentrant execution gate via `SemaphoreSlim(1, 1)` preventing drift or concurrency stampedes.
+  - *Verification Proof*: Registered as ASP.NET Core `IHostedService` in `Program.cs`. Verified live execution against running Kestrel server: daemon autonomously executed recurring 5-second reachability and 30-second host health sweeps, writing time-stamped partitioned micro-batches directly to PostgreSQL 18 without operator intervention.
+- [x] **4.6 Telemetry & Topology API Endpoints**:
+  - [x] `GET /api/v1/topology`: Return complete hierarchical graph with 2-Branch Layout Guarantee (`branch_left` / `branch_right` with `branch_index`).
+  - [x] `GET /api/v1/telemetry/{id}` & `GET /api/v1/devices/{id}/telemetry/live`: Return slide-over inspector node details with decoupled `network_layer` and `host_layer`.
+  - [x] `GET /api/v1/telemetry/{id}/history` & `GET /api/v1/devices/{id}/telemetry/history`: Return raw time-series reachability samples within time window.
+  - *Verification Proof*: Authored `GetTopologyTreeAsync_ReturnsTwoBranchAccessSwitchHierarchy` in `TelemetryServiceTests.cs`. Entire automated test suite expanded to 102 tests passing (`Total: 102, Passed: 102, Failed: 0`). Executed live verification against Kestrel server: provisioned Access Switch with alternating leaf endpoints; verified `GET /api/v1/topology` returned 2-branch partitioned layout with alternating `branch_index` values (0, 1, 2...); verified `GET /api/v1/telemetry/1` returned slide-over inspector payload; verified `GET /api/v1/telemetry/1/history` returned time-series history. Cleaned up test assets. Phase 4 complete.
 
 ---
 
