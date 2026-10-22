@@ -36,6 +36,10 @@ public static class DependencyInjection
         services.AddScoped<IGroupRepository, GroupRepository>();
         services.AddScoped<IDeviceRepository, DeviceRepository>();
         services.AddScoped<IMonitoringConfigRepository, MonitoringConfigRepository>();
+        services.AddScoped<IReachabilityRepository, ReachabilityRepository>();
+
+        // Telemetry Engine & Raw Socket Probe Factory (Strategy & Factory Patterns)
+        services.AddSingleton<NetworkObserver.Application.Interfaces.Telemetry.IPingProbeFactory, NetworkObserver.Infrastructure.Telemetry.PingProbeFactory>();
 
         // Security, Argon2id Cryptography, and Session Management
         services.AddSingleton<IPasswordHasher, Argon2idPasswordHasher>();

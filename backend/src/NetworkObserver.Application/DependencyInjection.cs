@@ -15,6 +15,7 @@ public static class DependencyInjection
         services.AddScoped<IGroupService, GroupService>();
         services.AddScoped<IDeviceService, DeviceService>();
         services.AddScoped<IMonitoringConfigService, MonitoringConfigService>();
+        services.AddScoped<ITelemetryService, TelemetryService>();
         return services;
     }
 }
