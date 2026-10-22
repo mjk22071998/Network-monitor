@@ -177,10 +177,12 @@
   - [x] Compute microsecond clock drift ($\theta = \frac{(T_2 - T_1) + (T_3 - T_4)}{2}$) as signed 32-bit `ntp_offset_us`.
   - [x] Enforce Strict N/A rule: write `NULL` for missing, unconfigured, or timed-out NTP metrics (never `0`).
   - *Verification Proof*: Authored `ExecuteReachabilitySweepAsync_ProbesMonitoredDevices_AndCalculatesNtpDrift_StrictNARule` in `TelemetryServiceTests.cs`. Entire automated test suite expanded to 97 tests passing (`Total: 97, Passed: 97, Failed: 0`). Executed live verification against Kestrel server on `http://localhost:5000`: `POST /api/v1/telemetry/poll` queried reachable nodes, confirmed `ntp_offset_us: null` on nodes without active NTP service (never `0`), and verified `GET /api/v1/devices/{id}/telemetry/live` schema compliance.
-- [ ] **4.3 Cascading Failure Suppression Circuit**:
-  - [ ] In-memory switch adjacency tree.
-  - [ ] Automatically mark children `SUPPRESSED` on upstream switch failure.
-  - [ ] Halt synthetic pings to suppressed nodes.
+- [x] **4.3 Cascading Failure Suppression Circuit**:
+  - [x] In-memory switch-device DAG adjacency traversal (`ICascadeSuppressionCircuit`, `CascadeSuppressionCircuit`).
+  - [x] Automatically mark downstream children `SUPPRESSED` (`status_id = 3`, `is_suppressed = true`, `latency_us = null`, `ntp_offset_us = null`) on upstream parent failure (FR-CAS-01 - FR-CAS-04).
+  - [x] Halt synthetic ICMP and NTP packets to downstream suppressed nodes, eliminating network packet storms and PLC tripping.
+  - [x] Respect `monitoring_config.enable_cascade_suppression` toggle; automatic recovery when parent recovers.
+  - *Verification Proof*: Authored `ExecuteReachabilitySweepAsync_WhenUpstreamSwitchFails_ImmediatelySuppressesDownstreamNodes_WithoutSyntheticPings` and `ExecuteReachabilitySweepAsync_WhenCascadeSuppressionDisabled_PollsAllDevicesDirectly` in `TelemetryServiceTests.cs`. Entire automated test suite expanded to 99 tests passing (`Total: 99, Passed: 99, Failed: 0`). Executed live verification against Kestrel server: provisioned Root Switch (offline) and Downstream Child PLC; `POST /api/v1/telemetry/poll` recorded child node as `SUPPRESSED` with `latency_us: null` and zero synthetic ping transmissions; `GET /api/v1/devices/{id}/telemetry/live` returned `status_code: "SUPPRESSED"` and `is_suppressed: true`; `GET /api/v1/telemetry/summary` reflected `suppressed_count: 1`. Cleaned up test assets.
 - [ ] **4.4 Host Health Metrics Collector**:
   - [ ] Poll host agents on port 9182 / SNMP on switches every 30 seconds.
   - [ ] Record CPU, RAM, network throughput, and multi-volume disk storage.

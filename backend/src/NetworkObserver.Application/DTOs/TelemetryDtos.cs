@@ -25,12 +25,25 @@ public record TelemetrySummaryDto(
     HostHealthSummaryDto HostHealth
 );
 
+public record LiveNetworkLayerDto(
+    string StatusCode,
+    int? LatencyUs,
+    decimal? LatencyMs,
+    decimal LossPercentage,
+    int? NtpOffsetUs,
+    decimal? NtpOffsetMs,
+    bool IsSuppressed,
+    DateTimeOffset LastCheckedAt
+);
+
 public record DeviceLiveTelemetryDto(
     int DeviceId,
     string MacAddress,
     string PrimaryIp,
     string DisplayName,
+    LiveNetworkLayerDto? NetworkLayer,
     LatestReachabilityDto? LatestReachability,
+    LatestHealthDto? HostLayer,
     LatestHealthDto? LatestHealth
 );
 
@@ -56,5 +69,6 @@ public record PollSweepResultDto(
     int PolledCount,
     int ReachableCount,
     int UnreachableCount,
+    int SuppressedCount,
     DateTimeOffset CompletedAt
 );

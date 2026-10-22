@@ -16,6 +16,7 @@ public class TelemetryServiceTests
     private readonly StubMonitoringConfigRepository _configRepo;
     private readonly StubPingProbeFactory _probeFactory;
     private readonly StubNtpProbeFactory _ntpFactory;
+    private readonly CascadeSuppressionCircuit _suppressionCircuit;
     private readonly TelemetryService _telemetryService;
 
     public TelemetryServiceTests()
@@ -35,13 +36,15 @@ public class TelemetryServiceTests
         });
         _probeFactory = new StubPingProbeFactory();
         _ntpFactory = new StubNtpProbeFactory();
+        _suppressionCircuit = new CascadeSuppressionCircuit();
 
         _telemetryService = new TelemetryService(
             _deviceRepo,
             _reachabilityRepo,
             _configRepo,
             _probeFactory,
-            _ntpFactory
+            _ntpFactory,
+            _suppressionCircuit
         );
     }
 
@@ -121,6 +124,98 @@ public class TelemetryServiceTests
         var sample3 = _reachabilityRepo.SavedSamples.FirstOrDefault(s => s.DeviceId == 3);
         Assert.NotNull(sample3);
         Assert.Null(sample3.NtpOffsetUs); // Unreachable node: strictly null
+    }
+
+    [Fact]
+    public async Task ExecuteReachabilitySweepAsync_WhenUpstreamSwitchFails_ImmediatelySuppressesDownstreamNodes_WithoutSyntheticPings()
+    {
+        // Arrange
+        // Topology DAG:
+        // Device 1: Core Router (Root)
+        // Device 2: Access Switch (Parent = 1)
+        // Device 3: Leaf PLC (Parent = 2)
+        // Device 4: Leaf PC (Parent = 2)
+        _deviceRepo.AddDevice(new Device { DeviceId = 1, DisplayName = "CORE-R1", PrimaryIp = "10.0.0.1", MacAddress = "00:1A:2B:00:00:01", TypeId = 1, GroupId = 1, IsMonitored = true, ParentDeviceId = null });
+        _deviceRepo.AddDevice(new Device { DeviceId = 2, DisplayName = "ACCESS-SW-1", PrimaryIp = "192.168.1.2", MacAddress = "00:1A:2B:00:00:02", TypeId = 3, GroupId = 1, IsMonitored = true, ParentDeviceId = 1 });
+        _deviceRepo.AddDevice(new Device { DeviceId = 3, DisplayName = "LEAF-PLC-1", PrimaryIp = "192.168.1.103", MacAddress = "00:1A:2B:00:00:03", TypeId = 5, GroupId = 1, IsMonitored = true, ParentDeviceId = 2 });
+        _deviceRepo.AddDevice(new Device { DeviceId = 4, DisplayName = "LEAF-PC-1", PrimaryIp = "192.168.1.104", MacAddress = "00:1A:2B:00:00:04", TypeId = 5, GroupId = 1, IsMonitored = true, ParentDeviceId = 2 });
+
+        // Core Router 1 is UP
+        _probeFactory.ConfigureResult("10.0.0.1", new PingProbeResult(IsSuccess: true, LatencyUs: 250, LossPercentage: 0f));
+        // Access Switch 2 is DOWN (Outage)
+        _probeFactory.ConfigureResult("192.168.1.2", new PingProbeResult(IsSuccess: false, LatencyUs: null, LossPercentage: 100f, ErrorMessage: "TimedOut"));
+
+        // Act
+        var result = await _telemetryService.ExecuteReachabilitySweepAsync();
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(4, result.PolledCount);
+        Assert.Equal(1, result.ReachableCount);   // Core Router
+        Assert.Equal(1, result.UnreachableCount); // Access Switch
+        Assert.Equal(2, result.SuppressedCount);  // Leaf PLC + Leaf PC
+
+        var samples = _reachabilityRepo.SavedSamples;
+        Assert.Equal(4, samples.Count);
+
+        var routerSample = samples.First(s => s.DeviceId == 1);
+        Assert.Equal(1, routerSample.StatusId); // REACHABLE
+        Assert.False(routerSample.IsSuppressed);
+
+        var switchSample = samples.First(s => s.DeviceId == 2);
+        Assert.Equal(2, switchSample.StatusId); // UNREACHABLE
+        Assert.False(switchSample.IsSuppressed);
+
+        var plcSample = samples.First(s => s.DeviceId == 3);
+        Assert.Equal(3, plcSample.StatusId); // SUPPRESSED
+        Assert.True(plcSample.IsSuppressed);
+        Assert.Null(plcSample.LatencyUs);     // Strict N/A Rule
+
+        var pcSample = samples.First(s => s.DeviceId == 4);
+        Assert.Equal(3, pcSample.StatusId);  // SUPPRESSED
+        Assert.True(pcSample.IsSuppressed);
+        Assert.Null(pcSample.LatencyUs);     // Strict N/A Rule
+
+        // FR-CAS-02: Zero synthetic pings sent to downstream suppressed devices!
+        Assert.Contains("10.0.0.1", _probeFactory.ProbedIps);
+        Assert.Contains("192.168.1.2", _probeFactory.ProbedIps);
+        Assert.DoesNotContain("192.168.1.103", _probeFactory.ProbedIps);
+        Assert.DoesNotContain("192.168.1.104", _probeFactory.ProbedIps);
+    }
+
+    [Fact]
+    public async Task ExecuteReachabilitySweepAsync_WhenCascadeSuppressionDisabled_PollsAllDevicesDirectly()
+    {
+        // Arrange
+        _configRepo.SetConfig(new MonitoringConfig
+        {
+            ConfigId = 1,
+            SiteId = 1,
+            ReachabilityIntervalSec = 5,
+            ReachabilityTimeoutMs = 2000,
+            HealthIntervalSec = 30,
+            HealthTimeoutMs = 5000,
+            CascadeSuppressionEnabled = false // DISABLED
+        });
+
+        _deviceRepo.AddDevice(new Device { DeviceId = 1, DisplayName = "CORE-R1", PrimaryIp = "10.0.0.1", MacAddress = "00:1A:2B:00:00:01", TypeId = 1, GroupId = 1, IsMonitored = true, ParentDeviceId = null });
+        _deviceRepo.AddDevice(new Device { DeviceId = 2, DisplayName = "ACCESS-SW-1", PrimaryIp = "192.168.1.2", MacAddress = "00:1A:2B:00:00:02", TypeId = 3, GroupId = 1, IsMonitored = true, ParentDeviceId = 1 });
+        _deviceRepo.AddDevice(new Device { DeviceId = 3, DisplayName = "LEAF-PLC-1", PrimaryIp = "192.168.1.103", MacAddress = "00:1A:2B:00:00:03", TypeId = 5, GroupId = 1, IsMonitored = true, ParentDeviceId = 2 });
+
+        _probeFactory.ConfigureResult("10.0.0.1", new PingProbeResult(IsSuccess: true, LatencyUs: 250, LossPercentage: 0f));
+        _probeFactory.ConfigureResult("192.168.1.2", new PingProbeResult(IsSuccess: false, LatencyUs: null, LossPercentage: 100f));
+        _probeFactory.ConfigureResult("192.168.1.103", new PingProbeResult(IsSuccess: false, LatencyUs: null, LossPercentage: 100f));
+
+        // Act
+        var result = await _telemetryService.ExecuteReachabilitySweepAsync();
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(0, result.SuppressedCount);
+        Assert.Equal(2, result.UnreachableCount);
+
+        // When disabled, downstream node was directly probed
+        Assert.Contains("192.168.1.103", _probeFactory.ProbedIps);
     }
 
     [Fact]
@@ -325,6 +420,8 @@ internal class StubPingProbeFactory : IPingProbeFactory
 {
     private readonly StubPingStrategy _strategy = new();
 
+    public List<string> ProbedIps => _strategy.ProbedIps;
+
     public void ConfigureResult(string ip, PingProbeResult result) => _strategy.ConfigureResult(ip, result);
 
     public IPingStrategy CreateStrategy() => _strategy;
@@ -333,11 +430,17 @@ internal class StubPingProbeFactory : IPingProbeFactory
 internal class StubPingStrategy : IPingStrategy
 {
     private readonly Dictionary<string, PingProbeResult> _results = new();
+    public List<string> ProbedIps { get; } = new();
 
     public void ConfigureResult(string ip, PingProbeResult result) => _results[ip] = result;
 
     public Task<PingProbeResult> PingAsync(string destinationIp, int timeoutMs, CancellationToken ct = default)
     {
+        lock (ProbedIps)
+        {
+            ProbedIps.Add(destinationIp);
+        }
+
         if (_results.TryGetValue(destinationIp, out var result))
         {
             return Task.FromResult(result);
