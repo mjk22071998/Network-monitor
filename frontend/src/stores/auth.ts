@@ -13,6 +13,7 @@ export const useAuthStore = defineStore('auth', () => {
   const isAuthenticated = computed(() => !!user.value);
   const roleName = computed(() => user.value?.role_name ?? 'OPERATOR');
   const username = computed(() => user.value?.username ?? '');
+  const isAdmin = computed(() => user.value?.role_id === 1);
 
   async function checkAuth(): Promise<boolean> {
     isLoading.value = true;
@@ -79,6 +80,7 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     roleName,
     username,
+    isAdmin,
     checkAuth,
     login,
     logout

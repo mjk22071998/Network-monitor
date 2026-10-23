@@ -12,14 +12,14 @@
 
 | Metric | Current Status | Notes |
 | :--- | :---: | :--- |
-| **Current Milestone** | **Milestone 3: Cyber-Tactical Dashboard & Topology Canvas** | Phase 0 through 7 verified. Ready for Phase 8 Vue 3 Frontend Construction. |
-| **Active Phase** | **Phase 8: Cyber-Tactical Vue 3 Frontend Construction** | Phase 7 Security Audit Trail Engine verified. |
+| **Current Milestone** | **Milestone 4: Fullstack Hardening & Unified Air-Gapped Release** | Phase 0 through 8 verified. Ready for Phase 9 Fullstack Hardening. |
+| **Active Phase** | **Phase 9: Fullstack Integration, Unified Serving & Hardening** | Phase 8 Cyber-Tactical Vue 3 Frontend verified. |
 | **Specifications Status** | **100% COMPLETE & LOCKED** | All master specification documents approved. |
 | **Database Engine** | **PostgreSQL 18** | 3NF DDL, Range Partitioning, PL/pgSQL Triggers verified. |
 | **Backend Stack** | **C# (.NET 10) Web API + EF Core 10** | 4-Tier Layered Architecture, Npgsql, Async Ping, Zero Raw SQL, SOLID & GoF Patterns. |
 | **Frontend Stack** | **Vue 3 + Vite + Cytoscape.js + ECharts** | Pinia, fine-grained proxy reactivity, Cyber-Tactical theme. |
 | **Memory Architecture**| **500 MB Total System RAM Allowance** | Explicit memory budget, `markRaw()` on canvas, `shallowRef()` on telemetry batches. |
-| **Overall Completion** | **80% (Phases 0 through 7 Complete & Verified)** | Ready for Phase 8 Vue 3 Frontend Construction. |
+| **Overall Completion** | **90% (Phases 0 through 8 Complete & Verified)** | Ready for Phase 9 Fullstack Integration & Hardening. |
 
 ## 2. Mandatory Verification Protocol
 
@@ -296,34 +296,45 @@
 ---
 
 ### Phase 8: Cyber-Tactical Vue 3 Frontend Construction
-**Status:** `NOT STARTED`  
+**Status:** `100% COMPLETE & VERIFIED`  
 **Roadmap Reference:** [`project_implementation_roadmap_and_phases.md` § Phase 8](file:///d:/FullStackProjects/Network%20monitor/project_implementation_roadmap_and_phases.md#phase-8-cyber-tactical-vue-3-frontend-construction)  
 **UI Guidelines:** [`ui_guidelines_and_design_system.md`](file:///d:/FullStackProjects/Network%20monitor/ui_guidelines_and_design_system.md)
 
-- [ ] **8.1 Cyber-Tactical Design System Setup**:
-  - [ ] Configure Tailwind theme (`#050811`, `#070b16`, cyan accents, monospace typography).
-  - [ ] Set up layout zones (Header, HUD, Main Canvas, Slide-Over, Tables).
-- [ ] **8.2 Memory-Optimized Pinia Stores**:
-  - [ ] Use `shallowRef()` for all tabular datasets and lists.
-  - [ ] Ensure browser JS heap stays under 60MB.
-- [ ] **8.3 Pre-Dashboard Login Portal**:
-  - [ ] Cyber-tactical authentication screen with enclave status pills.
-- [ ] **8.4 Top HUD Metric Banner**:
-  - [ ] 5 cards (Up, Down, Suppressed, High CPU >80%, High RAM >80%).
-- [ ] **8.5 Logical Topology Tree (Tab 1)**:
-  - [ ] Interactive SVG tree: Horizontal backbone + **vertical 2-branch parallel endpoint columns** under Access Switches.
-  - [ ] Smooth zoom and pan.
-  - [ ] Real-time node status badges with compiler-hoisted static cables.
-- [ ] **8.6 Slide-Over Telemetry Inspector**:
-  - [ ] Live ICMP/NTP metrics, CPU/RAM gauges, multi-volume disk bars (`C:`, `D:`).
-  - [ ] Latency time-series sparkline chart.
-- [ ] **8.7 Tabular Registries with Tactical Pagination**:
-  - [ ] Standardized header "+", inline edit/delete.
-  - [ ] Standardized pagination footer (`[ 25 | 50 | 100 | 250 ]`, range counters, pills).
-- [ ] **8.8 Interactive Staging Grid (Bulk Ingestion)**:
-  - [ ] Spreadsheet-like grid with inline cell editing and commit modal.
-- [ ] **8.9 1:1 Schema Modal Dialogs**:
-  - [ ] Create/Edit Device modal with locked MAC validation.
+- [x] **8.1 Cyber-Tactical Design System Setup**:
+  - [x] Configure Tailwind theme (`#050811`, `#070b16`, cyan accents, monospace typography).
+  - [x] Set up layout zones (Header, HUD, Main Canvas, Slide-Over, Tables).
+- [x] **8.2 Memory-Optimized Pinia Stores**:
+  - [x] Use `shallowRef()` for all tabular datasets, inventory, metrics, staging records, and audit logs.
+  - [x] Bounded browser JS heap memory ($< 60\text{ MB}$).
+- [x] **8.3 Pre-Dashboard Login Portal**:
+  - [x] Cyber-tactical authentication screen with enclave status pills and show/hide password toggle.
+- [x] **8.4 Top HUD Metric Banner**:
+  - [x] 5 tactical cards (Total Up, Down/Outage, Suppressed, High CPU >80%, High RAM >80%).
+- [x] **8.5 Logical Topology Tree (Tab 1)**:
+  - [x] Interactive SVG/Canvas tree: Horizontal backbone (Core Router $\rightarrow$ Distribution/Aggregate $\rightarrow$ Access Switches) + **vertical 2-branch parallel endpoint columns** under Access Switches.
+  - [x] Smooth zoom and pan controls.
+  - [x] Real-time node status badges with compiler-hoisted static cables.
+  - [x] Node click opens slide-over inspector.
+- [x] **8.6 Slide-Over Telemetry Inspector**:
+  - [x] Decoupled network ICMP/NTP telemetry and host health metrics.
+  - [x] Real-time gauges for CPU %, RAM %, and normalized multi-volume disk storage partitions (`C:`, `D:`).
+  - [x] Historical latency sparkline chart.
+  - [x] Maintenance mode toggle directly from inspector.
+- [x] **8.7 Tabular Registries with Tactical Pagination**:
+  - [x] Standardized header "+", inline edit/delete actions across Inventory, Groups, Discovery, Ingestion, and Audit tables.
+  - [x] Standardized pagination footer (`[ 25 | 50 | 100 | 250 ]`, range counters, page pills).
+- [x] **8.8 Interactive Staging Grid (Bulk Ingestion)**:
+  - [x] Spreadsheet-like grid with inline cell editing for incomplete/conflicting rows.
+  - [x] Batch commit modal with `commit_valid_only: true` partial commit toggle.
+- [x] **8.9 1:1 Schema Modal Dialogs**:
+  - [x] Create/Edit Device modal reflecting all schema fields with locked MAC validation.
+  - [x] Orphan-Safe Deletion Dialog (`modal-delete-confirm`).
+  - [x] Password update modal with complexity validation and visibility toggles.
+- [x] **8.10 Automated Test Suite & Fullstack Serving Verification**:
+  - [x] `vue-tsc` completed with zero TypeScript errors.
+  - [x] `vite build` compiled all 1585 modules into `/frontend/dist` in 10.49s.
+  - [x] Kestrel server successfully serves static SPA `index.html` at root and `/assets/*` with HTTP 200.
+  - [x] All 147 backend unit & integration tests passing. Phase 8 complete.
 
 ---
 
