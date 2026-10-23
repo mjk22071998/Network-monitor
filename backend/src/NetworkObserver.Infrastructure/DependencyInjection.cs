@@ -39,6 +39,7 @@ public static class DependencyInjection
         services.AddScoped<IReachabilityRepository, ReachabilityRepository>();
         services.AddScoped<IHealthRepository, HealthRepository>();
         services.AddScoped<IAuditLogRepository, AuditLogRepository>();
+        services.AddScoped<IIngestRepository, IngestRepository>();
 
         // Discovery Hardware Identification (Strategy & OUI Heuristics)
         services.AddSingleton<NetworkObserver.Application.Interfaces.Discovery.IMacVendorLookup, NetworkObserver.Infrastructure.Discovery.MacVendorLookup>();

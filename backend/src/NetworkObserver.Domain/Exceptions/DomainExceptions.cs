@@ -195,3 +195,33 @@ public class ScanNotFoundException : DomainException
     public ScanNotFoundException(string scanId) 
         : base($"Discovery scan '{scanId}' was not found.", "SCAN_NOT_FOUND") { }
 }
+
+public class BatchNotFoundException : DomainException
+{
+    public BatchNotFoundException(int batchId) 
+        : base($"Import batch with ID {batchId} was not found.", "BATCH_NOT_FOUND") { }
+}
+
+public class StagedRecordNotFoundException : DomainException
+{
+    public StagedRecordNotFoundException(long stagedId) 
+        : base($"Staged record with ID {stagedId} was not found.", "STAGED_RECORD_NOT_FOUND") { }
+}
+
+public class BatchAlreadyCommittedException : DomainException
+{
+    public BatchAlreadyCommittedException(int batchId) 
+        : base($"Import batch with ID {batchId} is already committed or discarded.", "BATCH_ALREADY_COMMITTED") { }
+}
+
+public class BatchValidationConflictException : DomainException
+{
+    public BatchValidationConflictException(string message) 
+        : base(message, "BATCH_VALIDATION_CONFLICT") { }
+}
+
+public class InvalidFileException : DomainException
+{
+    public InvalidFileException(string message) 
+        : base(message, "INVALID_FILE_UPLOAD") { }
+}

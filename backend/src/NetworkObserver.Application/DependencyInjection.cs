@@ -20,6 +20,7 @@ public static class DependencyInjection
         services.AddScoped<ICascadeSuppressionCircuit, CascadeSuppressionCircuit>();
         services.AddScoped<ITelemetryService, TelemetryService>();
         services.AddScoped<ISubnetDiscoveryService, SubnetDiscoveryService>();
+        services.AddScoped<IIngestService, IngestService>();
         return services;
     }
 }
