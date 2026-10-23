@@ -39,7 +39,8 @@ const flatGroups = computed(() => groupsStore.flattenGroups(groupsStore.groupsTr
 
 // Potential parents (Core Routers and Switches)
 const candidateParents = computed(() => {
-  return devicesStore.devices.filter(d => 
+  const all = Array.isArray(devicesStore.devices) ? devicesStore.devices : [];
+  return all.filter(d => 
     (d.type_id === 1 || d.type_id === 2 || d.type_id === 3) &&
     (!props.deviceToEdit || d.device_id !== props.deviceToEdit.device_id)
   );

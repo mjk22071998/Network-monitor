@@ -9,8 +9,14 @@ import type {
 
 export const devicesApi = {
   async getAll(): Promise<Device[]> {
-    const res = await apiClient.get<Device[]>('/devices');
-    return res.data;
+    const res = await apiClient.get<any>('/devices?limit=1000');
+    if (Array.isArray(res.data)) {
+      return res.data;
+    }
+    if (res.data && Array.isArray(res.data.data)) {
+      return res.data.data;
+    }
+    return [];
   },
 
   async getById(id: number): Promise<DeviceDetail> {

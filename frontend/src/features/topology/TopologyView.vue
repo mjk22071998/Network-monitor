@@ -71,10 +71,22 @@ function resetView() {
 // Layer 2: Access Switches (type_id 3)
 // Layer 3: Endpoints (Servers type_id 4, PCs type_id 5) organized into 2 parallel vertical branches under each access switch
 
-const coreRouters = computed(() => devicesStore.devices.filter(d => d.type_id === 1));
-const aggSwitches = computed(() => devicesStore.devices.filter(d => d.type_id === 2));
-const accessSwitches = computed(() => devicesStore.devices.filter(d => d.type_id === 3));
-const endpoints = computed(() => devicesStore.devices.filter(d => d.type_id === 4 || d.type_id === 5));
+const coreRouters = computed(() => {
+  const list = Array.isArray(devicesStore.devices) ? devicesStore.devices : [];
+  return list.filter(d => d && d.type_id === 1);
+});
+const aggSwitches = computed(() => {
+  const list = Array.isArray(devicesStore.devices) ? devicesStore.devices : [];
+  return list.filter(d => d && d.type_id === 2);
+});
+const accessSwitches = computed(() => {
+  const list = Array.isArray(devicesStore.devices) ? devicesStore.devices : [];
+  return list.filter(d => d && d.type_id === 3);
+});
+const endpoints = computed(() => {
+  const list = Array.isArray(devicesStore.devices) ? devicesStore.devices : [];
+  return list.filter(d => d && (d.type_id === 4 || d.type_id === 5));
+});
 
 // Find children for a given switch
 function getChildrenForSwitch(switchId: number): { leftBranch: Device[]; rightBranch: Device[] } {
@@ -91,9 +103,10 @@ function getChildrenForSwitch(switchId: number): { leftBranch: Device[]; rightBr
 }
 
 // Or unparented endpoints
-const unparentedEndpoints = computed(() => 
-  endpoints.value.filter(d => !d.parent_device_id || !devicesStore.devices.some(p => p.device_id === d.parent_device_id))
-);
+const unparentedEndpoints = computed(() => {
+  const allDevices = Array.isArray(devicesStore.devices) ? devicesStore.devices : [];
+  return endpoints.value.filter(d => !d.parent_device_id || !allDevices.some(p => p.device_id === d.parent_device_id));
+});
 
 function getNodeColor(status?: string, isMaint?: boolean): { border: string; bg: string; dot: string; text: string } {
   if (isMaint) {

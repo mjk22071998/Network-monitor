@@ -10,13 +10,15 @@ export const useGroupsStore = defineStore('groups', () => {
 
   // Helper to flatten groups for select dropdowns
   function flattenGroups(nodes: GroupNode[], depth: number = 0, result: Array<{ id: number; name: string; depth: number }> = []) {
+    if (!Array.isArray(nodes)) return result;
     for (const node of nodes) {
+      if (!node) continue;
       result.push({
         id: node.group_id,
         name: `${'—'.repeat(depth)} ${node.group_name}`.trim(),
         depth
       });
-      if (node.children && node.children.length > 0) {
+      if (node.children && Array.isArray(node.children) && node.children.length > 0) {
         flattenGroups(node.children, depth + 1, result);
       }
     }
@@ -28,8 +30,9 @@ export const useGroupsStore = defineStore('groups', () => {
     error.value = null;
     try {
       const data = await groupsApi.getTree();
-      groupsTree.value = data;
+      groupsTree.value = Array.isArray(data) ? data : [];
     } catch (err: any) {
+      groupsTree.value = [];
       error.value = err.response?.data?.error || err.message || 'Failed to load groups';
     } finally {
       isLoading.value = false;
@@ -51,6 +54,7 @@ export const useGroupsStore = defineStore('groups', () => {
   }
 
   async function updateGroup(id: number, payload: UpdateGroupRequest) {
+    if (!id) return;
     isLoading.value = true;
     error.value = null;
     try {
@@ -65,6 +69,7 @@ export const useGroupsStore = defineStore('groups', () => {
   }
 
   async function deleteGroup(id: number) {
+    if (!id) return;
     isLoading.value = true;
     error.value = null;
     try {

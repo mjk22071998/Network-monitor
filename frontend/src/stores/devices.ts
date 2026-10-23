@@ -26,39 +26,42 @@ export const useDevicesStore = defineStore('devices', () => {
   const currentPage = ref<number>(1);
   const pageSize = ref<number>(25);
 
+  // Safe helper to always get an array
+  const rawList = computed(() => Array.isArray(devices.value) ? devices.value : []);
+
   // Computed HUD Metrics
-  const totalCount = computed(() => devices.value.length);
+  const totalCount = computed(() => rawList.value.length);
   
   const upCount = computed(() => 
-    devices.value.filter(d => (d.reachability_status === 'REACHABLE' || !d.reachability_status) && !d.is_in_maintenance).length
+    rawList.value.filter(d => (d.reachability_status === 'REACHABLE' || !d.reachability_status) && !d.is_in_maintenance).length
   );
   
   const downCount = computed(() => 
-    devices.value.filter(d => d.reachability_status === 'UNREACHABLE' && !d.is_in_maintenance).length
+    rawList.value.filter(d => d.reachability_status === 'UNREACHABLE' && !d.is_in_maintenance).length
   );
   
   const suppressedCount = computed(() => 
-    devices.value.filter(d => d.reachability_status === 'SUPPRESSED' || d.is_in_maintenance).length
+    rawList.value.filter(d => d.reachability_status === 'SUPPRESSED' || d.is_in_maintenance).length
   );
   
   const highCpuCount = computed(() => 
-    devices.value.filter(d => (d.latest_cpu_pct ?? 0) >= 80).length
+    rawList.value.filter(d => (d.latest_cpu_pct ?? 0) >= 80).length
   );
   
   const highRamCount = computed(() => 
-    devices.value.filter(d => (d.latest_ram_pct ?? 0) >= 80).length
+    rawList.value.filter(d => (d.latest_ram_pct ?? 0) >= 80).length
   );
 
   // Filtered devices
   const filteredDevices = computed(() => {
-    let list = devices.value;
+    let list = rawList.value;
 
     if (searchQuery.value.trim()) {
       const q = searchQuery.value.toLowerCase().trim();
       list = list.filter(d => 
-        d.display_name.toLowerCase().includes(q) ||
-        d.primary_ip.toLowerCase().includes(q) ||
-        d.mac_address.toLowerCase().includes(q) ||
+        (d.display_name && d.display_name.toLowerCase().includes(q)) ||
+        (d.primary_ip && d.primary_ip.toLowerCase().includes(q)) ||
+        (d.mac_address && d.mac_address.toLowerCase().includes(q)) ||
         (d.vendor && d.vendor.toLowerCase().includes(q))
       );
     }
@@ -80,8 +83,9 @@ export const useDevicesStore = defineStore('devices', () => {
 
   // Paginated devices
   const paginatedDevices = computed(() => {
+    const list = filteredDevices.value;
     const start = (currentPage.value - 1) * pageSize.value;
-    return filteredDevices.value.slice(start, start + pageSize.value);
+    return list.slice(start, start + pageSize.value);
   });
 
   const totalFilteredPages = computed(() => 
@@ -93,8 +97,9 @@ export const useDevicesStore = defineStore('devices', () => {
     error.value = null;
     try {
       const data = await devicesApi.getAll();
-      devices.value = data;
+      devices.value = Array.isArray(data) ? data : [];
     } catch (err: any) {
+      devices.value = [];
       error.value = err.response?.data?.error || err.message || 'Failed to fetch devices';
     } finally {
       isLoading.value = false;
@@ -102,6 +107,7 @@ export const useDevicesStore = defineStore('devices', () => {
   }
 
   async function selectDevice(id: number) {
+    if (!id) return;
     isInspectorLoading.value = true;
     error.value = null;
     try {

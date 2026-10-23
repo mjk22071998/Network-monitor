@@ -3,8 +3,14 @@ import type { GroupNode, CreateGroupRequest, UpdateGroupRequest } from '../types
 
 export const groupsApi = {
   async getTree(): Promise<GroupNode[]> {
-    const res = await apiClient.get<GroupNode[]>('/groups');
-    return res.data;
+    const res = await apiClient.get<any>('/groups');
+    if (Array.isArray(res.data)) {
+      return res.data;
+    }
+    if (res.data && Array.isArray(res.data.groups)) {
+      return res.data.groups;
+    }
+    return [];
   },
 
   async create(payload: CreateGroupRequest): Promise<GroupNode> {

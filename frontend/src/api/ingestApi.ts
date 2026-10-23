@@ -23,11 +23,14 @@ export const ingestApi = {
     return res.data;
   },
 
-  async getRecords(batchId: number, limit: number = 50, offset: number = 0): Promise<{ records: StagingRecord[]; total: number }> {
-    const res = await apiClient.get<{ records: StagingRecord[]; total: number }>(`/ingest/batches/${batchId}/records`, {
-      params: { limit, offset }
+  async getRecords(batchId: number, page: number = 1, limit: number = 50): Promise<{ records: StagingRecord[]; total: number }> {
+    const res = await apiClient.get<any>(`/ingest/batches/${batchId}/records`, {
+      params: { page, limit }
     });
-    return res.data;
+    return {
+      records: res.data?.data || [],
+      total: res.data?.pagination?.total_records || 0
+    };
   },
 
   async updateRecord(recordId: number, payload: UpdateStagingRecordRequest): Promise<StagingRecord> {
