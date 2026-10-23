@@ -4,7 +4,11 @@ using NetworkObserver.Api.Middleware;
 using NetworkObserver.Application;
 using NetworkObserver.Infrastructure;
 
-var builder = WebApplication.CreateBuilder(args);
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+{
+    Args = args,
+    ContentRootPath = AppContext.BaseDirectory
+});
 
 // Configure controllers with snake_case JSON naming policy matching api_contracts_specification.md
 builder.Services.AddControllers()
@@ -43,8 +47,9 @@ else
 // Locate compiled Vue 3 SPA frontend assets
 var candidateDistPaths = new[]
 {
-    Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, "..", "..", "..", "frontend", "dist")),
-    Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, "..", "..", "frontend", "dist")),
+    Path.Combine(AppContext.BaseDirectory, "wwwroot"),
+    Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "frontend", "dist")),
+    Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "frontend", "dist")),
     Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "frontend", "dist")),
     Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, "wwwroot"))
 };

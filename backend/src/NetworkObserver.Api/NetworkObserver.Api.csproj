@@ -19,4 +19,16 @@
     <ProjectReference Include="..\NetworkObserver.Infrastructure\NetworkObserver.Infrastructure.csproj" />
   </ItemGroup>
 
+  <!-- Auto-bundle compiled frontend/dist into wwwroot on publish for unified self-contained serving -->
+  <Target Name="PublishFrontend" AfterTargets="ComputeFilesToPublish">
+    <ItemGroup>
+      <DistFiles Include="..\..\..\frontend\dist\**" />
+      <ResolvedFileToPublish Include="@(DistFiles->'%(FullPath)')" Exclude="@(ResolvedFileToPublish)">
+        <RelativePath>wwwroot\%(RecursiveDir)%(Filename)%(Extension)</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+        <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
+
 </Project>
