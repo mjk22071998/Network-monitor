@@ -4,11 +4,25 @@ using NetworkObserver.Api.Middleware;
 using NetworkObserver.Application;
 using NetworkObserver.Infrastructure;
 
-var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+var builder = WebApplication.CreateBuilder(args);
+
+// Ensure appsettings.json is resolved from either current directory or AppContext.BaseDirectory
+builder.Configuration
+    .SetBasePath(AppContext.BaseDirectory)
+    .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true);
+
+if (Directory.GetCurrentDirectory() != AppContext.BaseDirectory)
 {
-    Args = args,
-    ContentRootPath = AppContext.BaseDirectory
-});
+    builder.Configuration
+        .SetBasePath(Directory.GetCurrentDirectory())
+        .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+        .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true);
+}
+
+builder.Configuration
+    .AddEnvironmentVariables()
+    .AddCommandLine(args);
 
 // Configure controllers with snake_case JSON naming policy matching api_contracts_specification.md
 builder.Services.AddControllers()
@@ -44,17 +58,8 @@ else
     app.UseHttpsRedirection();
 }
 
-// Locate compiled Vue 3 SPA frontend assets
-var candidateDistPaths = new[]
-{
-    Path.Combine(AppContext.BaseDirectory, "wwwroot"),
-    Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "frontend", "dist")),
-    Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "frontend", "dist")),
-    Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "frontend", "dist")),
-    Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, "wwwroot"))
-};
-
-var staticFilesPath = candidateDistPaths.FirstOrDefault(Directory.Exists);
+// Locate compiled Vue 3 SPA frontend assets robustly
+var staticFilesPath = FindStaticFilesPath();
 
 if (staticFilesPath != null)
 {
@@ -86,3 +91,30 @@ if (staticFilesPath != null)
 }
 
 app.Run();
+
+static string? FindStaticFilesPath()
+{
+    // 1. Direct wwwroot alongside assembly (e.g. dist/server/wwwroot)
+    var localWwwroot = Path.Combine(AppContext.BaseDirectory, "wwwroot");
+    if (Directory.Exists(localWwwroot)) return localWwwroot;
+
+    // 2. Walk up directory tree from AppContext.BaseDirectory to find "frontend/dist"
+    var dir = new DirectoryInfo(AppContext.BaseDirectory);
+    while (dir != null)
+    {
+        var frontendDist = Path.Combine(dir.FullName, "frontend", "dist");
+        if (Directory.Exists(frontendDist)) return frontendDist;
+        dir = dir.Parent;
+    }
+
+    // 3. Fallback: Walk up directory tree from CurrentDirectory
+    dir = new DirectoryInfo(Directory.GetCurrentDirectory());
+    while (dir != null)
+    {
+        var frontendDist = Path.Combine(dir.FullName, "frontend", "dist");
+        if (Directory.Exists(frontendDist)) return frontendDist;
+        dir = dir.Parent;
+    }
+
+    return null;
+}
