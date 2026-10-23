@@ -1,6 +1,7 @@
 using NetworkObserver.Application.DTOs;
 using NetworkObserver.Application.Interfaces.Repositories;
 using NetworkObserver.Application.Interfaces.Services;
+using NetworkObserver.Domain.Constants;
 using NetworkObserver.Domain.Entities;
 using NetworkObserver.Domain.Exceptions;
 
@@ -14,10 +15,14 @@ public class GroupService : IGroupService
 {
     private const int RootUnassignedGroupId = 1;
     private readonly IGroupRepository _groupRepository;
+    private readonly IAuditLogRepository _auditLogRepository;
 
-    public GroupService(IGroupRepository groupRepository)
+    public GroupService(
+        IGroupRepository groupRepository,
+        IAuditLogRepository? auditLogRepository = null)
     {
         _groupRepository = groupRepository;
+        _auditLogRepository = auditLogRepository ?? new NullAuditLogRepository();
     }
 
     public async Task<GroupTreeResponse> GetGroupTreeAsync(int? parentId = null, CancellationToken ct = default)
@@ -52,7 +57,7 @@ public class GroupService : IGroupService
         return new GroupTreeResponse(tree);
     }
 
-    public async Task<GroupDetailDto> CreateGroupAsync(CreateGroupRequest request, CancellationToken ct = default)
+    public async Task<GroupDetailDto> CreateGroupAsync(CreateGroupRequest request, int? userId = null, string ipAddress = "127.0.0.1", CancellationToken ct = default)
     {
         ValidateGroupName(request.GroupName);
 
@@ -76,6 +81,18 @@ public class GroupService : IGroupService
 
         await _groupRepository.AddAsync(group, ct);
 
+        await _auditLogRepository.AddAsync(new AuditLog
+        {
+            UserId = userId,
+            SiteId = 1,
+            ActionCode = AuditActionCodes.GroupCreate,
+            TargetEntity = AuditTargetEntities.Group,
+            TargetId = group.GroupId.ToString(),
+            Details = $"Created group '{group.GroupName}' (Parent: {group.ParentGroupId?.ToString() ?? "None"}).",
+            IpAddress = string.IsNullOrWhiteSpace(ipAddress) ? "127.0.0.1" : ipAddress.Trim(),
+            LoggedAt = DateTimeOffset.UtcNow
+        }, ct);
+
         return new GroupDetailDto(
             GroupId: group.GroupId,
             SiteId: group.SiteId,
@@ -86,7 +103,7 @@ public class GroupService : IGroupService
         );
     }
 
-    public async Task<GroupDetailDto> UpdateGroupAsync(int groupId, UpdateGroupRequest request, CancellationToken ct = default)
+    public async Task<GroupDetailDto> UpdateGroupAsync(int groupId, UpdateGroupRequest request, int? userId = null, string ipAddress = "127.0.0.1", CancellationToken ct = default)
     {
         ValidateGroupName(request.GroupName);
 
@@ -144,6 +161,18 @@ public class GroupService : IGroupService
 
         await _groupRepository.UpdateAsync(group, ct);
 
+        await _auditLogRepository.AddAsync(new AuditLog
+        {
+            UserId = userId,
+            SiteId = 1,
+            ActionCode = AuditActionCodes.GroupUpdate,
+            TargetEntity = AuditTargetEntities.Group,
+            TargetId = group.GroupId.ToString(),
+            Details = $"Updated group '{group.GroupName}' (Parent: {group.ParentGroupId?.ToString() ?? "None"}).",
+            IpAddress = string.IsNullOrWhiteSpace(ipAddress) ? "127.0.0.1" : ipAddress.Trim(),
+            LoggedAt = DateTimeOffset.UtcNow
+        }, ct);
+
         return new GroupDetailDto(
             GroupId: group.GroupId,
             SiteId: group.SiteId,
@@ -154,7 +183,7 @@ public class GroupService : IGroupService
         );
     }
 
-    public async Task<DeleteGroupResponse> DeleteGroupAsync(int groupId, CancellationToken ct = default)
+    public async Task<DeleteGroupResponse> DeleteGroupAsync(int groupId, int? userId = null, string ipAddress = "127.0.0.1", CancellationToken ct = default)
     {
         if (groupId == RootUnassignedGroupId)
         {
@@ -168,6 +197,18 @@ public class GroupService : IGroupService
         }
 
         var reassignedCount = await _groupRepository.DeleteAndReassignAsync(groupId, RootUnassignedGroupId, ct);
+
+        await _auditLogRepository.AddAsync(new AuditLog
+        {
+            UserId = userId,
+            SiteId = 1,
+            ActionCode = AuditActionCodes.GroupDelete,
+            TargetEntity = AuditTargetEntities.Group,
+            TargetId = groupId.ToString(),
+            Details = $"Deleted group '{group.GroupName}'. Reassigned {reassignedCount} devices to Group 1.",
+            IpAddress = string.IsNullOrWhiteSpace(ipAddress) ? "127.0.0.1" : ipAddress.Trim(),
+            LoggedAt = DateTimeOffset.UtcNow
+        }, ct);
 
         return new DeleteGroupResponse(
             DeletedGroupId: groupId,

@@ -21,6 +21,7 @@ public static class DependencyInjection
         services.AddScoped<ITelemetryService, TelemetryService>();
         services.AddScoped<ISubnetDiscoveryService, SubnetDiscoveryService>();
         services.AddScoped<IIngestService, IngestService>();
+        services.AddScoped<IAuditService, AuditService>();
         return services;
     }
 }

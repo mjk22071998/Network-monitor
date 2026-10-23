@@ -298,6 +298,21 @@ CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_logs(action_code);
 CREATE OR REPLACE FUNCTION fn_audit_logs_immutable()
 RETURNS TRIGGER AS $$
 BEGIN
+    -- Permit foreign key cascade setting user_id to NULL when user is deleted, while preserving all audit facts
+    IF (TG_OP = 'UPDATE') THEN
+        IF (OLD.user_id IS NOT NULL AND NEW.user_id IS NULL
+            AND NEW.log_id = OLD.log_id
+            AND NEW.site_id = OLD.site_id
+            AND NEW.action_code = OLD.action_code
+            AND NEW.target_entity = OLD.target_entity
+            AND (NEW.target_id = OLD.target_id OR (NEW.target_id IS NULL AND OLD.target_id IS NULL))
+            AND (NEW.details::text = OLD.details::text OR (NEW.details IS NULL AND OLD.details IS NULL))
+            AND NEW.ip_address = OLD.ip_address
+            AND NEW.logged_at = OLD.logged_at) THEN
+            RETURN NEW;
+        END IF;
+    END IF;
+
     RAISE EXCEPTION 'SECURITY VIOLATION: audit_logs records are immutable and cannot be updated or deleted.';
     RETURN NULL;
 END;

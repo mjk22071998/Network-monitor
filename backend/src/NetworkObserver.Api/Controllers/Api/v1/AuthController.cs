@@ -32,7 +32,8 @@ public class AuthController : ControllerBase
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> Login([FromBody] LoginRequest request, CancellationToken ct)
     {
-        var response = await _authService.LoginAsync(request, ct);
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+        var response = await _authService.LoginAsync(request, ipAddress, ct);
 
         // Set HttpOnly, Secure, SameSite=Strict cookie for browser SPA clients
         Response.Cookies.Append(SessionAuthenticationMiddleware.SessionCookieName, response.Token, new CookieOptions
@@ -58,9 +59,13 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> Logout(CancellationToken ct)
     {
         var token = User.FindFirst("session_token")?.Value;
+        var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        int? userId = int.TryParse(userIdStr, out var uid) ? uid : null;
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+
         if (!string.IsNullOrWhiteSpace(token))
         {
-            await _authService.LogoutAsync(token, ct);
+            await _authService.LogoutAsync(token, userId, ipAddress, ct);
         }
 
         // Clear session cookie
@@ -110,7 +115,8 @@ public class AuthController : ControllerBase
             return Unauthorized();
         }
 
-        var result = await _authService.ChangePasswordAsync(userId, request, ct);
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+        var result = await _authService.ChangePasswordAsync(userId, request, ipAddress, ct);
 
         // Password change revokes all active sessions; clear current session cookie
         Response.Cookies.Delete(SessionAuthenticationMiddleware.SessionCookieName, new CookieOptions

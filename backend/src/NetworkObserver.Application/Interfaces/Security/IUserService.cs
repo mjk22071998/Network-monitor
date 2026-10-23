@@ -10,7 +10,7 @@ public interface IUserService
 {
     Task<UserListResponse> GetUsersAsync(CancellationToken ct = default);
     Task<UserDetailDto> GetUserByIdAsync(int userId, CancellationToken ct = default);
-    Task<CreateUserResponse> CreateUserAsync(CreateUserRequest request, CancellationToken ct = default);
-    Task<UpdateUserResponse> UpdateUserAsync(int targetUserId, UpdateUserRequest request, CancellationToken ct = default);
-    Task DeleteUserAsync(int targetUserId, int currentUserId, CancellationToken ct = default);
+    Task<CreateUserResponse> CreateUserAsync(CreateUserRequest request, int? adminUserId = null, string ipAddress = "127.0.0.1", CancellationToken ct = default);
+    Task<UpdateUserResponse> UpdateUserAsync(int targetUserId, UpdateUserRequest request, int? adminUserId = null, string ipAddress = "127.0.0.1", CancellationToken ct = default);
+    Task DeleteUserAsync(int targetUserId, int currentUserId, string ipAddress = "127.0.0.1", CancellationToken ct = default);
 }

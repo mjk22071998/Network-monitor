@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using NetworkObserver.Application.DTOs;
 using NetworkObserver.Application.Interfaces.Repositories;
 using NetworkObserver.Application.Interfaces.Services;
+using NetworkObserver.Domain.Constants;
 using NetworkObserver.Domain.Entities;
 using NetworkObserver.Domain.Enums;
 using NetworkObserver.Domain.Exceptions;
@@ -87,6 +88,8 @@ public class DeviceService : IDeviceService
     public async Task<CreatedDeviceResponse> CreateDeviceAsync(
         CreateDeviceRequest request,
         RoleType operatorRole,
+        int? userId = null,
+        string ipAddress = "127.0.0.1",
         CancellationToken ct = default)
     {
         ValidateDisplayName(request.DisplayName);
@@ -134,6 +137,18 @@ public class DeviceService : IDeviceService
 
         await _deviceRepository.AddAsync(device, ct);
 
+        await _auditLogRepository.AddAsync(new AuditLog
+        {
+            UserId = userId,
+            SiteId = 1,
+            ActionCode = AuditActionCodes.DeviceCreate,
+            TargetEntity = AuditTargetEntities.Device,
+            TargetId = device.DeviceId.ToString(),
+            Details = $"Created device '{device.DisplayName}' ({device.PrimaryIp}, MAC: {device.MacAddress}, Type: {device.TypeId}).",
+            IpAddress = string.IsNullOrWhiteSpace(ipAddress) ? "127.0.0.1" : ipAddress.Trim(),
+            LoggedAt = DateTimeOffset.UtcNow
+        }, ct);
+
         return new CreatedDeviceResponse(
             DeviceId: device.DeviceId,
             MacAddress: device.MacAddress,
@@ -154,6 +169,8 @@ public class DeviceService : IDeviceService
         int deviceId,
         UpdateDeviceRequest request,
         RoleType operatorRole,
+        int? userId = null,
+        string ipAddress = "127.0.0.1",
         CancellationToken ct = default)
     {
         var device = await _deviceRepository.GetByIdAsync(deviceId, ct);
@@ -213,6 +230,18 @@ public class DeviceService : IDeviceService
 
         await _deviceRepository.UpdateAsync(device, ct);
 
+        await _auditLogRepository.AddAsync(new AuditLog
+        {
+            UserId = userId,
+            SiteId = 1,
+            ActionCode = AuditActionCodes.DeviceUpdate,
+            TargetEntity = AuditTargetEntities.Device,
+            TargetId = device.DeviceId.ToString(),
+            Details = $"Updated device '{device.DisplayName}' (IP: {device.PrimaryIp}, Group: {device.GroupId}).",
+            IpAddress = string.IsNullOrWhiteSpace(ipAddress) ? "127.0.0.1" : ipAddress.Trim(),
+            LoggedAt = DateTimeOffset.UtcNow
+        }, ct);
+
         return new UpdatedDeviceResponse(
             DeviceId: device.DeviceId,
             MacAddress: device.MacAddress,
@@ -232,6 +261,8 @@ public class DeviceService : IDeviceService
     public async Task<DeleteDeviceResponse> DeleteDeviceAsync(
         int deviceId,
         RoleType operatorRole,
+        int? userId = null,
+        string ipAddress = "127.0.0.1",
         CancellationToken ct = default)
     {
         var device = await _deviceRepository.GetByIdAsync(deviceId, ct);
@@ -243,6 +274,18 @@ public class DeviceService : IDeviceService
         ValidateRoleForEquipmentTier(device.TypeId, operatorRole, "delete");
 
         var orphanedChildrenIds = await _deviceRepository.DeleteAndOrphanChildrenAsync(deviceId, ct);
+
+        await _auditLogRepository.AddAsync(new AuditLog
+        {
+            UserId = userId,
+            SiteId = 1,
+            ActionCode = AuditActionCodes.DeviceDelete,
+            TargetEntity = AuditTargetEntities.Device,
+            TargetId = deviceId.ToString(),
+            Details = $"Deleted device '{device.DisplayName}'. Orphaned children re-linked: {orphanedChildrenIds.Count}.",
+            IpAddress = string.IsNullOrWhiteSpace(ipAddress) ? "127.0.0.1" : ipAddress.Trim(),
+            LoggedAt = DateTimeOffset.UtcNow
+        }, ct);
 
         return new DeleteDeviceResponse(
             DeletedDeviceId: deviceId,
@@ -460,4 +503,9 @@ internal class NullAuditLogRepository : IAuditLogRepository
     }
     public Task<AuditLog?> GetByIdAsync(long logId, CancellationToken ct = default) => Task.FromResult<AuditLog?>(null);
     public Task<IReadOnlyList<AuditLog>> GetRecentAsync(int limit = 50, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<AuditLog>>(Array.Empty<AuditLog>());
+    public Task<(IReadOnlyList<AuditLog> Items, int TotalCount)> GetLogsPagedAsync(
+        int? userId, string? actionCode, DateTimeOffset? start, DateTimeOffset? end, int page, int limit, CancellationToken ct = default)
+    {
+        return Task.FromResult<(IReadOnlyList<AuditLog>, int)>((Array.Empty<AuditLog>(), 0));
+    }
 }

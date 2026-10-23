@@ -101,7 +101,9 @@ public class DevicesController : ControllerBase
     public async Task<IActionResult> CreateDevice([FromBody] CreateDeviceRequest request, CancellationToken ct)
     {
         var role = GetCallerRole();
-        var created = await _deviceService.CreateDeviceAsync(request, role, ct);
+        var userId = GetCallerUserId();
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+        var created = await _deviceService.CreateDeviceAsync(request, role, userId, ipAddress, ct);
         return StatusCode(StatusCodes.Status201Created, created);
     }
 
@@ -123,7 +125,9 @@ public class DevicesController : ControllerBase
         CancellationToken ct)
     {
         var role = GetCallerRole();
-        var updated = await _deviceService.UpdateDeviceAsync(id, request, role, ct);
+        var userId = GetCallerUserId();
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+        var updated = await _deviceService.UpdateDeviceAsync(id, request, role, userId, ipAddress, ct);
         return Ok(updated);
     }
 
@@ -140,7 +144,9 @@ public class DevicesController : ControllerBase
     public async Task<IActionResult> DeleteDevice([FromRoute] int id, CancellationToken ct)
     {
         var role = GetCallerRole();
-        var response = await _deviceService.DeleteDeviceAsync(id, role, ct);
+        var userId = GetCallerUserId();
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+        var response = await _deviceService.DeleteDeviceAsync(id, role, userId, ipAddress, ct);
         return Ok(response);
     }
 

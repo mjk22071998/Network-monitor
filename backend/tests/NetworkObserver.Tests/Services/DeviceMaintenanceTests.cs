@@ -265,4 +265,17 @@ internal class StubAuditLogRepository : IAuditLogRepository
     {
         return Task.FromResult<IReadOnlyList<AuditLog>>(Logs.Take(limit).ToList());
     }
+
+    public Task<(IReadOnlyList<AuditLog> Items, int TotalCount)> GetLogsPagedAsync(
+        int? userId, string? actionCode, DateTimeOffset? start, DateTimeOffset? end, int page, int limit, CancellationToken ct = default)
+    {
+        var query = Logs.AsEnumerable();
+        if (userId.HasValue) query = query.Where(l => l.UserId == userId.Value);
+        if (!string.IsNullOrWhiteSpace(actionCode)) query = query.Where(l => l.ActionCode == actionCode.ToUpperInvariant());
+        if (start.HasValue) query = query.Where(l => l.LoggedAt >= start.Value);
+        if (end.HasValue) query = query.Where(l => l.LoggedAt <= end.Value);
+        var list = query.OrderByDescending(l => l.LoggedAt).ToList();
+        var items = list.Skip((page - 1) * limit).Take(limit).ToList();
+        return Task.FromResult<(IReadOnlyList<AuditLog>, int)>((items, list.Count));
+    }
 }

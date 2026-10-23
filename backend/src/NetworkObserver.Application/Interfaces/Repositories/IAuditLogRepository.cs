@@ -12,4 +12,12 @@ public interface IAuditLogRepository
     Task<AuditLog> AddAsync(AuditLog log, CancellationToken ct = default);
     Task<AuditLog?> GetByIdAsync(long logId, CancellationToken ct = default);
     Task<IReadOnlyList<AuditLog>> GetRecentAsync(int limit = 50, CancellationToken ct = default);
+    Task<(IReadOnlyList<AuditLog> Items, int TotalCount)> GetLogsPagedAsync(
+        int? userId,
+        string? actionCode,
+        DateTimeOffset? start,
+        DateTimeOffset? end,
+        int page,
+        int limit,
+        CancellationToken ct = default);
 }

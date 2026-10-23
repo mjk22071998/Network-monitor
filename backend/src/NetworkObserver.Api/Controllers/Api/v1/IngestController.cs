@@ -110,7 +110,9 @@ public class IngestController : ControllerBase
         [FromBody] UpdateStagedRecordRequest request,
         CancellationToken ct)
     {
-        var response = await _ingestService.UpdateStagedRecordAsync(stagedId, request, ct);
+        var userId = GetCallerUserId();
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+        var response = await _ingestService.UpdateStagedRecordAsync(stagedId, request, userId, ipAddress, ct);
         return Ok(response);
     }
 

@@ -9,5 +9,5 @@ namespace NetworkObserver.Application.Interfaces.Services;
 public interface ISiteService
 {
     Task<SiteDto> GetActiveSiteAsync(CancellationToken ct = default);
-    Task<UpdateSiteResponse> UpdateActiveSiteAsync(UpdateSiteRequest request, CancellationToken ct = default);
+    Task<UpdateSiteResponse> UpdateActiveSiteAsync(UpdateSiteRequest request, int? userId = null, string ipAddress = "127.0.0.1", CancellationToken ct = default);
 }

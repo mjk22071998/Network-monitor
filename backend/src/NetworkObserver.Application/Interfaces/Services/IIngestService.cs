@@ -26,6 +26,8 @@ public interface IIngestService
     Task<UpdateStagedRecordResponse> UpdateStagedRecordAsync(
         long stagedId,
         UpdateStagedRecordRequest request,
+        int? userId = null,
+        string ipAddress = "127.0.0.1",
         CancellationToken ct = default);
 
     Task<CommitBatchResponse> CommitBatchAsync(

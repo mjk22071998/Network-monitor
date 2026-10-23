@@ -1,6 +1,8 @@
 using NetworkObserver.Application.DTOs;
 using NetworkObserver.Application.Interfaces.Repositories;
 using NetworkObserver.Application.Interfaces.Services;
+using NetworkObserver.Domain.Constants;
+using NetworkObserver.Domain.Entities;
 using NetworkObserver.Domain.Exceptions;
 
 namespace NetworkObserver.Application.Services;
@@ -12,10 +14,14 @@ namespace NetworkObserver.Application.Services;
 public class MonitoringConfigService : IMonitoringConfigService
 {
     private readonly IMonitoringConfigRepository _configRepository;
+    private readonly IAuditLogRepository _auditLogRepository;
 
-    public MonitoringConfigService(IMonitoringConfigRepository configRepository)
+    public MonitoringConfigService(
+        IMonitoringConfigRepository configRepository,
+        IAuditLogRepository? auditLogRepository = null)
     {
         _configRepository = configRepository;
+        _auditLogRepository = auditLogRepository ?? new NullAuditLogRepository();
     }
 
     public async Task<MonitoringConfigDto> GetConfigAsync(CancellationToken ct = default)
@@ -38,7 +44,7 @@ public class MonitoringConfigService : IMonitoringConfigService
         );
     }
 
-    public async Task<MonitoringConfigDto> UpdateConfigAsync(UpdateMonitoringConfigRequest request, CancellationToken ct = default)
+    public async Task<MonitoringConfigDto> UpdateConfigAsync(UpdateMonitoringConfigRequest request, int? userId = null, string ipAddress = "127.0.0.1", CancellationToken ct = default)
     {
         ValidateCadenceParameters(request);
 
@@ -56,6 +62,18 @@ public class MonitoringConfigService : IMonitoringConfigService
         config.UpdatedAt = DateTimeOffset.UtcNow;
 
         await _configRepository.UpdateAsync(config, ct);
+
+        await _auditLogRepository.AddAsync(new AuditLog
+        {
+            UserId = userId,
+            SiteId = config.SiteId,
+            ActionCode = AuditActionCodes.ConfigUpdate,
+            TargetEntity = AuditTargetEntities.Site,
+            TargetId = config.ConfigId.ToString(),
+            Details = $"Updated monitoring cadences: Reachability={config.ReachabilityIntervalSec}s (timeout {config.ReachabilityTimeoutMs}ms), Health={config.HealthIntervalSec}s (timeout {config.HealthTimeoutMs}ms), CascadeSuppression={config.CascadeSuppressionEnabled}.",
+            IpAddress = string.IsNullOrWhiteSpace(ipAddress) ? "127.0.0.1" : ipAddress.Trim(),
+            LoggedAt = DateTimeOffset.UtcNow
+        }, ct);
 
         return new MonitoringConfigDto(
             ConfigId: config.ConfigId,

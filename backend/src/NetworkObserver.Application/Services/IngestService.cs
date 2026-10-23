@@ -6,6 +6,7 @@ using NetworkObserver.Application.DTOs;
 using NetworkObserver.Application.Interfaces.Discovery;
 using NetworkObserver.Application.Interfaces.Repositories;
 using NetworkObserver.Application.Interfaces.Services;
+using NetworkObserver.Domain.Constants;
 using NetworkObserver.Domain.Entities;
 using NetworkObserver.Domain.Enums;
 using NetworkObserver.Domain.Exceptions;
@@ -189,6 +190,18 @@ public class IngestService : IIngestService
         batch.TotalRows = totalRows;
         await _ingestRepository.UpdateBatchAsync(batch, ct);
 
+        await _auditLogRepository.AddAsync(new AuditLog
+        {
+            UserId = userId,
+            SiteId = 1,
+            ActionCode = AuditActionCodes.BatchUpload,
+            TargetEntity = AuditTargetEntities.Batch,
+            TargetId = batch.BatchId.ToString(),
+            Details = $"Uploaded bulk staging file '{batch.OriginalFilename}' ({totalRows} rows: {validRows} valid, {incompleteRows} incomplete, {conflictRows} conflict).",
+            IpAddress = "127.0.0.1",
+            LoggedAt = DateTimeOffset.UtcNow
+        }, ct);
+
         return new UploadBatchResponse(
             BatchId: batch.BatchId,
             OriginalFilename: batch.OriginalFilename,
@@ -273,6 +286,8 @@ public class IngestService : IIngestService
     public async Task<UpdateStagedRecordResponse> UpdateStagedRecordAsync(
         long stagedId,
         UpdateStagedRecordRequest request,
+        int? userId = null,
+        string ipAddress = "127.0.0.1",
         CancellationToken ct = default)
     {
         var record = await _ingestRepository.GetStagedRecordByIdAsync(stagedId, ct);
@@ -328,6 +343,18 @@ public class IngestService : IIngestService
         record.ResolvedParentDeviceId = resolvedParentId;
 
         await _ingestRepository.UpdateStagedRecordAsync(record, ct);
+
+        await _auditLogRepository.AddAsync(new AuditLog
+        {
+            UserId = userId,
+            SiteId = 1,
+            ActionCode = AuditActionCodes.BatchEdit,
+            TargetEntity = AuditTargetEntities.Batch,
+            TargetId = record.BatchId.ToString(),
+            Details = $"Edited staged record ID {record.StagedId} (Row #{record.SourceRowNumber}). Status: {record.ValidationStatus}.",
+            IpAddress = string.IsNullOrWhiteSpace(ipAddress) ? "127.0.0.1" : ipAddress.Trim(),
+            LoggedAt = DateTimeOffset.UtcNow
+        }, ct);
 
         return new UpdateStagedRecordResponse(
             StagedId: record.StagedId,

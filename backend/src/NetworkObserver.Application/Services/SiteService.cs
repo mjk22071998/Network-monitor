@@ -1,6 +1,8 @@
 using NetworkObserver.Application.DTOs;
 using NetworkObserver.Application.Interfaces.Repositories;
 using NetworkObserver.Application.Interfaces.Services;
+using NetworkObserver.Domain.Constants;
+using NetworkObserver.Domain.Entities;
 using NetworkObserver.Domain.Exceptions;
 
 namespace NetworkObserver.Application.Services;
@@ -12,10 +14,14 @@ namespace NetworkObserver.Application.Services;
 public class SiteService : ISiteService
 {
     private readonly ISiteRepository _siteRepository;
+    private readonly IAuditLogRepository _auditLogRepository;
 
-    public SiteService(ISiteRepository siteRepository)
+    public SiteService(
+        ISiteRepository siteRepository,
+        IAuditLogRepository? auditLogRepository = null)
     {
         _siteRepository = siteRepository;
+        _auditLogRepository = auditLogRepository ?? new NullAuditLogRepository();
     }
 
     public async Task<SiteDto> GetActiveSiteAsync(CancellationToken ct = default)
@@ -36,7 +42,7 @@ public class SiteService : ISiteService
         );
     }
 
-    public async Task<UpdateSiteResponse> UpdateActiveSiteAsync(UpdateSiteRequest request, CancellationToken ct = default)
+    public async Task<UpdateSiteResponse> UpdateActiveSiteAsync(UpdateSiteRequest request, int? userId = null, string ipAddress = "127.0.0.1", CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(request.SiteName))
         {
@@ -73,6 +79,18 @@ public class SiteService : ISiteService
         site.UpdatedAt = DateTimeOffset.UtcNow;
 
         await _siteRepository.UpdateAsync(site, ct);
+
+        await _auditLogRepository.AddAsync(new AuditLog
+        {
+            UserId = userId,
+            SiteId = site.SiteId,
+            ActionCode = AuditActionCodes.SiteUpdate,
+            TargetEntity = AuditTargetEntities.Site,
+            TargetId = site.SiteId.ToString(),
+            Details = $"Updated site metadata: Name='{site.SiteName}', Code='{site.FacilityCode}'.",
+            IpAddress = string.IsNullOrWhiteSpace(ipAddress) ? "127.0.0.1" : ipAddress.Trim(),
+            LoggedAt = DateTimeOffset.UtcNow
+        }, ct);
 
         return new UpdateSiteResponse(
             SiteId: site.SiteId,

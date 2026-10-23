@@ -49,7 +49,15 @@ public class SiteController : ControllerBase
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> UpdateSite([FromBody] UpdateSiteRequest request, CancellationToken ct)
     {
-        var response = await _siteService.UpdateActiveSiteAsync(request, ct);
+        var userId = GetCallerUserId();
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+        var response = await _siteService.UpdateActiveSiteAsync(request, userId, ipAddress, ct);
         return Ok(response);
+    }
+
+    private int GetCallerUserId()
+    {
+        var claim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+        return claim != null && int.TryParse(claim.Value, out var uid) ? uid : 1;
     }
 }

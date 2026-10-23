@@ -9,5 +9,5 @@ namespace NetworkObserver.Application.Interfaces.Services;
 public interface IMonitoringConfigService
 {
     Task<MonitoringConfigDto> GetConfigAsync(CancellationToken ct = default);
-    Task<MonitoringConfigDto> UpdateConfigAsync(UpdateMonitoringConfigRequest request, CancellationToken ct = default);
+    Task<MonitoringConfigDto> UpdateConfigAsync(UpdateMonitoringConfigRequest request, int? userId = null, string ipAddress = "127.0.0.1", CancellationToken ct = default);
 }

@@ -6,6 +6,8 @@ using NetworkObserver.Application.DTOs;
 using NetworkObserver.Application.Interfaces.Discovery;
 using NetworkObserver.Application.Interfaces.Repositories;
 using NetworkObserver.Application.Interfaces.Telemetry;
+using NetworkObserver.Domain.Constants;
+using NetworkObserver.Domain.Entities;
 using NetworkObserver.Domain.Exceptions;
 
 namespace NetworkObserver.Application.Services;
@@ -21,6 +23,7 @@ public class SubnetDiscoveryService : ISubnetDiscoveryService
     private readonly IArpResolver _arpResolver;
     private readonly IMacVendorLookup _macVendorLookup;
     private readonly IDeviceRepository _deviceRepository;
+    private readonly IAuditLogRepository _auditLogRepository;
     private readonly IServiceScopeFactory? _scopeFactory;
     private readonly ILogger<SubnetDiscoveryService> _logger;
 
@@ -34,7 +37,8 @@ public class SubnetDiscoveryService : ISubnetDiscoveryService
         IMacVendorLookup macVendorLookup,
         IDeviceRepository deviceRepository,
         ILogger<SubnetDiscoveryService> logger,
-        IServiceScopeFactory? scopeFactory = null)
+        IServiceScopeFactory? scopeFactory = null,
+        IAuditLogRepository? auditLogRepository = null)
     {
         _pingProbeFactory = pingProbeFactory;
         _arpResolver = arpResolver;
@@ -42,11 +46,14 @@ public class SubnetDiscoveryService : ISubnetDiscoveryService
         _deviceRepository = deviceRepository;
         _logger = logger;
         _scopeFactory = scopeFactory;
+        _auditLogRepository = auditLogRepository ?? new NullAuditLogRepository();
     }
 
-    public Task<SubnetScanInitResponse> TriggerScanAsync(
+    public async Task<SubnetScanInitResponse> TriggerScanAsync(
         SubnetScanRequest request,
         int siteId,
+        int? userId = null,
+        string ipAddress = "127.0.0.1",
         CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(request.SubnetCidr))
@@ -80,6 +87,18 @@ public class SubnetDiscoveryService : ISubnetDiscoveryService
         // Dispatch background worker asynchronously
         _ = RunSweepAsync(state, hostIps, siteId);
 
+        await _auditLogRepository.AddAsync(new AuditLog
+        {
+            UserId = userId,
+            SiteId = siteId,
+            ActionCode = AuditActionCodes.ScanTrigger,
+            TargetEntity = AuditTargetEntities.Network,
+            TargetId = scanId,
+            Details = $"Initiated subnet discovery scan on CIDR {request.SubnetCidr} (Host count: {hostIps.Count}).",
+            IpAddress = string.IsNullOrWhiteSpace(ipAddress) ? "127.0.0.1" : ipAddress.Trim(),
+            LoggedAt = DateTimeOffset.UtcNow
+        }, ct);
+
         var response = new SubnetScanInitResponse(
             ScanId: scanId,
             Status: "RUNNING",
@@ -88,7 +107,7 @@ public class SubnetDiscoveryService : ISubnetDiscoveryService
             StartedAt: state.StartedAt
         );
 
-        return Task.FromResult(response);
+        return response;
     }
 
     public Task<SubnetScanStatusResponse> GetScanStatusAsync(
@@ -111,7 +130,7 @@ public class SubnetDiscoveryService : ISubnetDiscoveryService
         return Task.FromResult(response);
     }
 
-    public Task<bool> CancelScanAsync(string scanId, CancellationToken ct = default)
+    public async Task<bool> CancelScanAsync(string scanId, int? userId = null, string ipAddress = "127.0.0.1", CancellationToken ct = default)
     {
         if (!Scans.TryGetValue(scanId, out var state))
         {
@@ -123,10 +142,23 @@ public class SubnetDiscoveryService : ISubnetDiscoveryService
             state.Cts.Cancel();
             state.Status = "CANCELLED";
             ActiveScanPerSite.TryRemove(state.SiteId, out _);
-            return Task.FromResult(true);
+
+            await _auditLogRepository.AddAsync(new AuditLog
+            {
+                UserId = userId,
+                SiteId = state.SiteId,
+                ActionCode = AuditActionCodes.ScanCancel,
+                TargetEntity = AuditTargetEntities.Network,
+                TargetId = scanId,
+                Details = $"Cancelled subnet discovery scan {scanId}.",
+                IpAddress = string.IsNullOrWhiteSpace(ipAddress) ? "127.0.0.1" : ipAddress.Trim(),
+                LoggedAt = DateTimeOffset.UtcNow
+            }, ct);
+
+            return true;
         }
 
-        return Task.FromResult(false);
+        return false;
     }
 
     private async Task RunSweepAsync(DiscoveryScanState state, IReadOnlyList<string> hostIps, int siteId)

@@ -13,8 +13,8 @@ public interface IDeviceService
     Task<PagedResponse<DeviceListItemDto>> GetDevicesAsync(DeviceQueryParameters parameters, CancellationToken ct = default);
     Task<DeviceDetailDto> GetDeviceByIdAsync(int deviceId, CancellationToken ct = default);
     Task<DeviceDetailDto> GetDeviceByMacAsync(string macAddress, CancellationToken ct = default);
-    Task<CreatedDeviceResponse> CreateDeviceAsync(CreateDeviceRequest request, RoleType operatorRole, CancellationToken ct = default);
-    Task<UpdatedDeviceResponse> UpdateDeviceAsync(int deviceId, UpdateDeviceRequest request, RoleType operatorRole, CancellationToken ct = default);
-    Task<DeleteDeviceResponse> DeleteDeviceAsync(int deviceId, RoleType operatorRole, CancellationToken ct = default);
+    Task<CreatedDeviceResponse> CreateDeviceAsync(CreateDeviceRequest request, RoleType operatorRole, int? userId = null, string ipAddress = "127.0.0.1", CancellationToken ct = default);
+    Task<UpdatedDeviceResponse> UpdateDeviceAsync(int deviceId, UpdateDeviceRequest request, RoleType operatorRole, int? userId = null, string ipAddress = "127.0.0.1", CancellationToken ct = default);
+    Task<DeleteDeviceResponse> DeleteDeviceAsync(int deviceId, RoleType operatorRole, int? userId = null, string ipAddress = "127.0.0.1", CancellationToken ct = default);
     Task<DeviceMaintenanceResponse> ToggleMaintenanceAsync(int deviceId, DeviceMaintenanceRequest request, int userId, RoleType operatorRole, string ipAddress, CancellationToken ct = default);
 }

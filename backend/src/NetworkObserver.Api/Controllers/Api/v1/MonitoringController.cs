@@ -52,7 +52,15 @@ public class MonitoringController : ControllerBase
         [FromBody] UpdateMonitoringConfigRequest request,
         CancellationToken ct)
     {
-        var updated = await _configService.UpdateConfigAsync(request, ct);
+        var userId = GetCallerUserId();
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+        var updated = await _configService.UpdateConfigAsync(request, userId, ipAddress, ct);
         return Ok(updated);
+    }
+
+    private int GetCallerUserId()
+    {
+        var claim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+        return claim != null && int.TryParse(claim.Value, out var uid) ? uid : 1;
     }
 }

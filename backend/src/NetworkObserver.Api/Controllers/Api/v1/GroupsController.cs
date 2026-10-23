@@ -49,7 +49,9 @@ public class GroupsController : ControllerBase
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> CreateGroup([FromBody] CreateGroupRequest request, CancellationToken ct)
     {
-        var created = await _groupService.CreateGroupAsync(request, ct);
+        var userId = GetCallerUserId();
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+        var created = await _groupService.CreateGroupAsync(request, userId, ipAddress, ct);
         return StatusCode(StatusCodes.Status201Created, created);
     }
 
@@ -69,7 +71,9 @@ public class GroupsController : ControllerBase
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> UpdateGroup(int id, [FromBody] UpdateGroupRequest request, CancellationToken ct)
     {
-        var updated = await _groupService.UpdateGroupAsync(id, request, ct);
+        var userId = GetCallerUserId();
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+        var updated = await _groupService.UpdateGroupAsync(id, request, userId, ipAddress, ct);
         return Ok(updated);
     }
 
@@ -87,7 +91,15 @@ public class GroupsController : ControllerBase
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status409Conflict)]
     public async Task<IActionResult> DeleteGroup(int id, CancellationToken ct)
     {
-        var response = await _groupService.DeleteGroupAsync(id, ct);
+        var userId = GetCallerUserId();
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+        var response = await _groupService.DeleteGroupAsync(id, userId, ipAddress, ct);
         return Ok(response);
+    }
+
+    private int GetCallerUserId()
+    {
+        var claim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+        return claim != null && int.TryParse(claim.Value, out var uid) ? uid : 1;
     }
 }

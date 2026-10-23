@@ -13,7 +13,7 @@ public interface IAuthService
     /// Issues a new 256-bit session token upon success.
     /// Executes dummy Argon2id calculation on inactive or non-existent accounts to defeat timing attacks.
     /// </summary>
-    Task<LoginResponse> LoginAsync(LoginRequest request, CancellationToken ct = default);
+    Task<LoginResponse> LoginAsync(LoginRequest request, string ipAddress = "127.0.0.1", CancellationToken ct = default);
 
     /// <summary>
     /// Retrieves user profile and permissions for the currently authenticated session.
@@ -25,10 +25,10 @@ public interface IAuthService
     /// Validates current password, enforces password complexity rules, prevents password reuse,
     /// and invalidates all existing active sessions.
     /// </summary>
-    Task<ChangePasswordResponse> ChangePasswordAsync(int userId, ChangePasswordRequest request, CancellationToken ct = default);
+    Task<ChangePasswordResponse> ChangePasswordAsync(int userId, ChangePasswordRequest request, string ipAddress = "127.0.0.1", CancellationToken ct = default);
 
     /// <summary>
     /// Terminates an active operator session, revoking the token from memory.
     /// </summary>
-    Task LogoutAsync(string token, CancellationToken ct = default);
+    Task LogoutAsync(string token, int? userId = null, string ipAddress = "127.0.0.1", CancellationToken ct = default);
 }

@@ -239,8 +239,9 @@ invalid-mac-string,192.168.1.106,CS-LAB101-PC-06,PC";
         Assert.Equal("INCOMPLETE", remaining[0].ValidationStatus);
 
         // Verify central audit log
-        Assert.Single(_auditRepo.Logs);
-        var audit = _auditRepo.Logs[0];
+        Assert.Equal(2, _auditRepo.Logs.Count);
+        Assert.Equal("BATCH_UPLOAD", _auditRepo.Logs[0].ActionCode);
+        var audit = _auditRepo.Logs[1];
         Assert.Equal("BATCH_COMMIT", audit.ActionCode);
         Assert.Equal("BATCH", audit.TargetEntity);
         Assert.Equal(batch.BatchId.ToString(), audit.TargetId);

@@ -39,7 +39,9 @@ public class DiscoveryController : ControllerBase
     {
         // Enclave single-site scope defaults to Site 1
         var siteId = 1;
-        var response = await _discoveryService.TriggerScanAsync(request, siteId, ct);
+        var userId = GetCallerUserId();
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+        var response = await _discoveryService.TriggerScanAsync(request, siteId, userId, ipAddress, ct);
         return Accepted(response);
     }
 
@@ -74,7 +76,15 @@ public class DiscoveryController : ControllerBase
         [FromRoute] string scanId,
         CancellationToken ct)
     {
-        var cancelled = await _discoveryService.CancelScanAsync(scanId, ct);
-        return Ok(new { scan_id = scanId, cancelled = cancelled });
+        var userId = GetCallerUserId();
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+        var cancelled = await _discoveryService.CancelScanAsync(scanId, userId, ipAddress, ct);
+        return Ok(new { scan_id = scanId, cancelled });
+    }
+
+    private int GetCallerUserId()
+    {
+        var claim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+        return claim != null && int.TryParse(claim.Value, out var uid) ? uid : 1;
     }
 }

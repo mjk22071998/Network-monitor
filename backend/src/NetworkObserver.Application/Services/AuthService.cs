@@ -1,6 +1,8 @@
 using NetworkObserver.Application.DTOs;
 using NetworkObserver.Application.Interfaces.Repositories;
 using NetworkObserver.Application.Interfaces.Security;
+using NetworkObserver.Domain.Constants;
+using NetworkObserver.Domain.Entities;
 using NetworkObserver.Domain.Exceptions;
 
 namespace NetworkObserver.Application.Services;
@@ -14,22 +16,36 @@ public class AuthService : IAuthService
     private readonly IUserRepository _userRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly ISessionManager _sessionManager;
+    private readonly IAuditLogRepository _auditLogRepository;
 
     public AuthService(
         IUserRepository userRepository,
         IPasswordHasher passwordHasher,
-        ISessionManager sessionManager)
+        ISessionManager sessionManager,
+        IAuditLogRepository? auditLogRepository = null)
     {
         _userRepository = userRepository;
         _passwordHasher = passwordHasher;
         _sessionManager = sessionManager;
+        _auditLogRepository = auditLogRepository ?? new NullAuditLogRepository();
     }
 
-    public async Task<LoginResponse> LoginAsync(LoginRequest request, CancellationToken ct = default)
+    public async Task<LoginResponse> LoginAsync(LoginRequest request, string ipAddress = "127.0.0.1", CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
         {
             _passwordHasher.DummyHash();
+            await _auditLogRepository.AddAsync(new AuditLog
+            {
+                UserId = null,
+                SiteId = 1,
+                ActionCode = AuditActionCodes.AuthFailure,
+                TargetEntity = AuditTargetEntities.User,
+                TargetId = request.Username,
+                Details = "Failed authentication attempt: empty credentials.",
+                IpAddress = string.IsNullOrWhiteSpace(ipAddress) ? "127.0.0.1" : ipAddress.Trim(),
+                LoggedAt = DateTimeOffset.UtcNow
+            }, ct);
             throw new InvalidCredentialsException();
         }
 
@@ -39,23 +55,68 @@ public class AuthService : IAuthService
         if (user == null)
         {
             _passwordHasher.DummyHash();
+            await _auditLogRepository.AddAsync(new AuditLog
+            {
+                UserId = null,
+                SiteId = 1,
+                ActionCode = AuditActionCodes.AuthFailure,
+                TargetEntity = AuditTargetEntities.User,
+                TargetId = request.Username.Trim(),
+                Details = $"Failed authentication attempt for non-existent username '{request.Username.Trim()}'.",
+                IpAddress = string.IsNullOrWhiteSpace(ipAddress) ? "127.0.0.1" : ipAddress.Trim(),
+                LoggedAt = DateTimeOffset.UtcNow
+            }, ct);
             throw new InvalidCredentialsException();
         }
 
         if (!user.IsActive)
         {
             _passwordHasher.DummyHash();
+            await _auditLogRepository.AddAsync(new AuditLog
+            {
+                UserId = user.UserId,
+                SiteId = user.SiteId,
+                ActionCode = AuditActionCodes.AuthFailure,
+                TargetEntity = AuditTargetEntities.User,
+                TargetId = user.UserId.ToString(),
+                Details = $"Failed authentication attempt for deactivated account '{user.Username}'.",
+                IpAddress = string.IsNullOrWhiteSpace(ipAddress) ? "127.0.0.1" : ipAddress.Trim(),
+                LoggedAt = DateTimeOffset.UtcNow
+            }, ct);
             throw new AccountDeactivatedException();
         }
 
         var isPasswordValid = _passwordHasher.VerifyPassword(request.Password, user.PasswordHash);
         if (!isPasswordValid)
         {
+            await _auditLogRepository.AddAsync(new AuditLog
+            {
+                UserId = user.UserId,
+                SiteId = user.SiteId,
+                ActionCode = AuditActionCodes.AuthFailure,
+                TargetEntity = AuditTargetEntities.User,
+                TargetId = user.UserId.ToString(),
+                Details = $"Failed authentication attempt: invalid passphrase for user '{user.Username}'.",
+                IpAddress = string.IsNullOrWhiteSpace(ipAddress) ? "127.0.0.1" : ipAddress.Trim(),
+                LoggedAt = DateTimeOffset.UtcNow
+            }, ct);
             throw new InvalidCredentialsException();
         }
 
         // Issue new 256-bit cryptographically secure session
         var session = _sessionManager.CreateSession(user.UserId, user.Username, user.RoleId, user.SiteId);
+
+        await _auditLogRepository.AddAsync(new AuditLog
+        {
+            UserId = user.UserId,
+            SiteId = user.SiteId,
+            ActionCode = AuditActionCodes.AuthLogin,
+            TargetEntity = AuditTargetEntities.User,
+            TargetId = user.UserId.ToString(),
+            Details = $"Operator '{user.Username}' authenticated successfully.",
+            IpAddress = string.IsNullOrWhiteSpace(ipAddress) ? "127.0.0.1" : ipAddress.Trim(),
+            LoggedAt = DateTimeOffset.UtcNow
+        }, ct);
 
         return new LoginResponse(
             Token: session.Token,
@@ -82,7 +143,7 @@ public class AuthService : IAuthService
         );
     }
 
-    public async Task<ChangePasswordResponse> ChangePasswordAsync(int userId, ChangePasswordRequest request, CancellationToken ct = default)
+    public async Task<ChangePasswordResponse> ChangePasswordAsync(int userId, ChangePasswordRequest request, string ipAddress = "127.0.0.1", CancellationToken ct = default)
     {
         ValidatePasswordComplexity(request.NewPassword);
 
@@ -115,19 +176,42 @@ public class AuthService : IAuthService
         // Security requirement: Invalidate all active sessions for this user upon password update
         _sessionManager.RevokeAllUserSessions(user.UserId);
 
+        await _auditLogRepository.AddAsync(new AuditLog
+        {
+            UserId = user.UserId,
+            SiteId = user.SiteId,
+            ActionCode = AuditActionCodes.PasswordChange,
+            TargetEntity = AuditTargetEntities.User,
+            TargetId = user.UserId.ToString(),
+            Details = $"Operator '{user.Username}' updated password. All active sessions invalidated.",
+            IpAddress = string.IsNullOrWhiteSpace(ipAddress) ? "127.0.0.1" : ipAddress.Trim(),
+            LoggedAt = DateTimeOffset.UtcNow
+        }, ct);
+
         return new ChangePasswordResponse(
             Message: "Passphrase updated successfully.",
             UpdatedAt: user.UpdatedAt
         );
     }
 
-    public Task LogoutAsync(string token, CancellationToken ct = default)
+    public async Task LogoutAsync(string token, int? userId = null, string ipAddress = "127.0.0.1", CancellationToken ct = default)
     {
         if (!string.IsNullOrWhiteSpace(token))
         {
             _sessionManager.RevokeSession(token);
+
+            await _auditLogRepository.AddAsync(new AuditLog
+            {
+                UserId = userId,
+                SiteId = 1,
+                ActionCode = AuditActionCodes.AuthLogout,
+                TargetEntity = AuditTargetEntities.User,
+                TargetId = userId?.ToString() ?? "0",
+                Details = "Operator session terminated.",
+                IpAddress = string.IsNullOrWhiteSpace(ipAddress) ? "127.0.0.1" : ipAddress.Trim(),
+                LoggedAt = DateTimeOffset.UtcNow
+            }, ct);
         }
-        return Task.CompletedTask;
     }
 
     private static void ValidatePasswordComplexity(string password)

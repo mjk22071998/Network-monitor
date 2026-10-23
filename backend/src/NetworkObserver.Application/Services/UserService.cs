@@ -1,6 +1,7 @@
 using NetworkObserver.Application.DTOs;
 using NetworkObserver.Application.Interfaces.Repositories;
 using NetworkObserver.Application.Interfaces.Security;
+using NetworkObserver.Domain.Constants;
 using NetworkObserver.Domain.Entities;
 using NetworkObserver.Domain.Enums;
 using NetworkObserver.Domain.Exceptions;
@@ -17,17 +18,20 @@ public class UserService : IUserService
     private readonly ISiteRepository _siteRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly ISessionManager _sessionManager;
+    private readonly IAuditLogRepository _auditLogRepository;
 
     public UserService(
         IUserRepository userRepository,
         ISiteRepository siteRepository,
         IPasswordHasher passwordHasher,
-        ISessionManager sessionManager)
+        ISessionManager sessionManager,
+        IAuditLogRepository? auditLogRepository = null)
     {
         _userRepository = userRepository;
         _siteRepository = siteRepository;
         _passwordHasher = passwordHasher;
         _sessionManager = sessionManager;
+        _auditLogRepository = auditLogRepository ?? new NullAuditLogRepository();
     }
 
     public async Task<UserListResponse> GetUsersAsync(CancellationToken ct = default)
@@ -67,7 +71,7 @@ public class UserService : IUserService
         );
     }
 
-    public async Task<CreateUserResponse> CreateUserAsync(CreateUserRequest request, CancellationToken ct = default)
+    public async Task<CreateUserResponse> CreateUserAsync(CreateUserRequest request, int? adminUserId = null, string ipAddress = "127.0.0.1", CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(request.Username))
         {
@@ -104,6 +108,18 @@ public class UserService : IUserService
 
         await _userRepository.AddAsync(user, ct);
 
+        await _auditLogRepository.AddAsync(new AuditLog
+        {
+            UserId = adminUserId,
+            SiteId = user.SiteId,
+            ActionCode = AuditActionCodes.UserCreate,
+            TargetEntity = AuditTargetEntities.User,
+            TargetId = user.UserId.ToString(),
+            Details = $"Admin created operator account '{user.Username}' (Role ID: {user.RoleId}).",
+            IpAddress = string.IsNullOrWhiteSpace(ipAddress) ? "127.0.0.1" : ipAddress.Trim(),
+            LoggedAt = DateTimeOffset.UtcNow
+        }, ct);
+
         return new CreateUserResponse(
             UserId: user.UserId,
             Username: user.Username,
@@ -114,7 +130,7 @@ public class UserService : IUserService
         );
     }
 
-    public async Task<UpdateUserResponse> UpdateUserAsync(int targetUserId, UpdateUserRequest request, CancellationToken ct = default)
+    public async Task<UpdateUserResponse> UpdateUserAsync(int targetUserId, UpdateUserRequest request, int? adminUserId = null, string ipAddress = "127.0.0.1", CancellationToken ct = default)
     {
         var user = await _userRepository.GetByIdAsync(targetUserId, ct);
         if (user == null)
@@ -165,6 +181,18 @@ public class UserService : IUserService
             _sessionManager.RevokeAllUserSessions(user.UserId);
         }
 
+        await _auditLogRepository.AddAsync(new AuditLog
+        {
+            UserId = adminUserId,
+            SiteId = user.SiteId,
+            ActionCode = AuditActionCodes.UserUpdate,
+            TargetEntity = AuditTargetEntities.User,
+            TargetId = user.UserId.ToString(),
+            Details = $"Admin updated operator account '{user.Username}' (Role ID: {user.RoleId}, Active: {user.IsActive}).",
+            IpAddress = string.IsNullOrWhiteSpace(ipAddress) ? "127.0.0.1" : ipAddress.Trim(),
+            LoggedAt = DateTimeOffset.UtcNow
+        }, ct);
+
         return new UpdateUserResponse(
             UserId: user.UserId,
             Username: user.Username,
@@ -175,7 +203,7 @@ public class UserService : IUserService
         );
     }
 
-    public async Task DeleteUserAsync(int targetUserId, int currentUserId, CancellationToken ct = default)
+    public async Task DeleteUserAsync(int targetUserId, int currentUserId, string ipAddress = "127.0.0.1", CancellationToken ct = default)
     {
         if (targetUserId == currentUserId)
         {
@@ -192,6 +220,18 @@ public class UserService : IUserService
         _sessionManager.RevokeAllUserSessions(targetUserId);
 
         await _userRepository.DeleteAsync(user, ct);
+
+        await _auditLogRepository.AddAsync(new AuditLog
+        {
+            UserId = currentUserId,
+            SiteId = user.SiteId,
+            ActionCode = AuditActionCodes.UserDelete,
+            TargetEntity = AuditTargetEntities.User,
+            TargetId = targetUserId.ToString(),
+            Details = $"Admin deleted operator account '{user.Username}' (ID: {targetUserId}).",
+            IpAddress = string.IsNullOrWhiteSpace(ipAddress) ? "127.0.0.1" : ipAddress.Trim(),
+            LoggedAt = DateTimeOffset.UtcNow
+        }, ct);
     }
 
     private static void ValidateRole(short roleId)

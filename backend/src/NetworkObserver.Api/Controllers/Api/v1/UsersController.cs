@@ -66,7 +66,11 @@ public class UsersController : ControllerBase
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> CreateUser([FromBody] CreateUserRequest request, CancellationToken ct)
     {
-        var result = await _userService.CreateUserAsync(request, ct);
+        var adminUserIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        int? adminUserId = int.TryParse(adminUserIdStr, out var aid) ? aid : null;
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+
+        var result = await _userService.CreateUserAsync(request, adminUserId, ipAddress, ct);
         return Created($"/api/v1/users/{result.UserId}", result);
     }
 
@@ -83,7 +87,11 @@ public class UsersController : ControllerBase
     [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> UpdateUser([FromRoute] int id, [FromBody] UpdateUserRequest request, CancellationToken ct)
     {
-        var result = await _userService.UpdateUserAsync(id, request, ct);
+        var adminUserIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        int? adminUserId = int.TryParse(adminUserIdStr, out var aid) ? aid : null;
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+
+        var result = await _userService.UpdateUserAsync(id, request, adminUserId, ipAddress, ct);
         return Ok(result);
     }
 
@@ -105,7 +113,8 @@ public class UsersController : ControllerBase
             return Unauthorized();
         }
 
-        await _userService.DeleteUserAsync(id, currentUserId, ct);
+        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+        await _userService.DeleteUserAsync(id, currentUserId, ipAddress, ct);
         return NoContent();
     }
 }
