@@ -12,11 +12,13 @@ export const useDiscoveryStore = defineStore('discovery', () => {
   async function checkActiveScan() {
     try {
       const active = await discoveryApi.getActive();
-      currentScan.value = active;
-      if (active && (active.status === 'PENDING' || active.status === 'IN_PROGRESS')) {
-        startPolling();
-      } else {
-        stopPolling();
+      if (active) {
+        currentScan.value = active;
+        if (active.status === 'PENDING' || active.status === 'IN_PROGRESS' || active.status === 'RUNNING') {
+          startPolling(active.scan_id);
+        } else {
+          stopPolling();
+        }
       }
     } catch {
       stopPolling();
@@ -29,16 +31,16 @@ export const useDiscoveryStore = defineStore('discovery', () => {
     try {
       const scan = await discoveryApi.trigger({ cidr, timeout_ms: timeoutMs });
       currentScan.value = scan;
-      startPolling();
+      startPolling(scan.scan_id);
     } catch (err: any) {
       isScanning.value = false;
-      error.value = err.response?.data?.error || err.message || 'Failed to start subnet sweep';
+      error.value = err.response?.data?.error || err.response?.data?.message || err.message || 'Failed to start subnet sweep';
       throw err;
     }
   }
 
   async function cancelScan() {
-    if (!currentScan.value) return;
+    if (!currentScan.value?.scan_id) return;
     try {
       await discoveryApi.cancel(currentScan.value.scan_id);
       stopPolling();
@@ -48,12 +50,27 @@ export const useDiscoveryStore = defineStore('discovery', () => {
     }
   }
 
-  function startPolling() {
+  function startPolling(scanId?: string) {
     stopPolling();
     isScanning.value = true;
+    const targetScanId = scanId || currentScan.value?.scan_id;
+
     pollInterval = setInterval(async () => {
       try {
-        const scan = await discoveryApi.getActive();
+        if (!targetScanId) {
+          const active = await discoveryApi.getActive();
+          if (active) {
+            currentScan.value = active;
+            if (active.status === 'COMPLETED' || active.status === 'CANCELLED' || active.status === 'FAILED') {
+              stopPolling();
+            }
+          } else {
+            stopPolling();
+          }
+          return;
+        }
+
+        const scan = await discoveryApi.getScanStatus(targetScanId);
         currentScan.value = scan;
         if (!scan || scan.status === 'COMPLETED' || scan.status === 'CANCELLED' || scan.status === 'FAILED') {
           stopPolling();
@@ -61,7 +78,7 @@ export const useDiscoveryStore = defineStore('discovery', () => {
       } catch {
         stopPolling();
       }
-    }, 1500);
+    }, 1000);
   }
 
   function stopPolling() {

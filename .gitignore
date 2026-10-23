@@ -35,6 +35,7 @@ Makefile
 # Frontend / Node.js
 frontend/node_modules/
 frontend/dist/
+backend/src/NetworkObserver.Api/wwwroot/
 node_modules/
 dist/
 *.tsbuildinfo

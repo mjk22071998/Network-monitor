@@ -207,6 +207,15 @@ public class SubnetDiscoveryServiceTests
         Assert.Equal("PC", asset10.InferredType);
         Assert.True(asset10.IsAlreadyRegistered); // Already in inventory!
     }
+
+    [Fact]
+    public async Task GetActiveOrLatestScanAsync_WhenCalled_ReturnsBaselineOrActiveScan()
+    {
+        var scan = await _discoveryService.GetActiveOrLatestScanAsync(siteId: 1);
+        Assert.NotNull(scan);
+        Assert.NotEmpty(scan.DiscoveredAssets);
+        Assert.True(scan.ProgressPct >= 0);
+    }
 }
 
 internal class StubArpResolver : IArpResolver

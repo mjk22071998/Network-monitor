@@ -46,6 +46,23 @@ public class DiscoveryController : ControllerBase
     }
 
     /// <summary>
+    /// Retrieves the active discovery sweep or most recent scan result for the enclave site.
+    /// Accessible to NetworkAdmin and NetworkEngineer.
+    /// </summary>
+    [HttpGet("active")]
+    [AuthorizeRole(RoleType.NetworkAdmin, RoleType.NetworkEngineer)]
+    [ProducesResponseType(typeof(SubnetScanStatusResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ErrorResponse), StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetActiveOrLatestScan(CancellationToken ct)
+    {
+        var siteId = 1;
+        var response = await _discoveryService.GetActiveOrLatestScanAsync(siteId, ct);
+        return response != null ? Ok(response) : NoContent();
+    }
+
+    /// <summary>
     /// Polls discovery scan progress percentage and discovered assets list.
     /// Accessible to NetworkAdmin and NetworkEngineer.
     /// </summary>

@@ -16,11 +16,14 @@ const emit = defineEmits<{
   (e: 'importHost', host: DiscoveredHost): void;
 }>();
 
-const cidrInput = ref('192.168.1.0/24');
+const cidrInput = ref('10.0.1.0/24');
 const timeoutMs = ref(1000);
 
 onMounted(async () => {
   await discoveryStore.checkActiveScan();
+  if (discoveryStore.currentScan?.cidr) {
+    cidrInput.value = discoveryStore.currentScan.cidr;
+  }
 });
 
 async function handleStartScan() {
@@ -56,7 +59,7 @@ async function handleCancelScan() {
           <input
             v-model="cidrInput"
             type="text"
-            placeholder="192.168.1.0/24"
+            placeholder="10.0.1.0/24"
             :disabled="discoveryStore.isScanning"
             class="w-36 bg-tactical-panel border border-tactical-border rounded px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-tactical-cyan text-xs disabled:opacity-50"
           />
@@ -100,7 +103,7 @@ async function handleCancelScan() {
 
     <!-- Live Progress Bar (if active) -->
     <div 
-      v-if="discoveryStore.currentScan && discoveryStore.currentScan.status === 'IN_PROGRESS'"
+      v-if="discoveryStore.currentScan && (discoveryStore.currentScan.status === 'IN_PROGRESS' || discoveryStore.currentScan.status === 'RUNNING')"
       class="bg-tactical-panel p-3 border-b border-tactical-border text-xs space-y-1.5"
     >
       <div class="flex justify-between text-slate-300">
@@ -109,13 +112,13 @@ async function handleCancelScan() {
           <span>Sweeping {{ discoveryStore.currentScan.cidr }}...</span>
         </span>
         <span class="text-slate-400">
-          {{ discoveryStore.currentScan.scanned_hosts }} / {{ discoveryStore.currentScan.total_targets }} Targets ({{ Math.round((discoveryStore.currentScan.scanned_hosts / (discoveryStore.currentScan.total_targets || 1)) * 100) }}%)
+          {{ discoveryStore.currentScan.scanned_hosts }} / {{ discoveryStore.currentScan.total_targets }} Targets ({{ discoveryStore.currentScan.progress_pct || Math.round((discoveryStore.currentScan.scanned_hosts / (discoveryStore.currentScan.total_targets || 1)) * 100) }}%)
         </span>
       </div>
       <div class="h-2 w-full bg-tactical-surface rounded overflow-hidden border border-tactical-border">
         <div 
           class="h-full bg-tactical-cyan transition-all duration-300"
-          :style="{ width: `${(discoveryStore.currentScan.scanned_hosts / (discoveryStore.currentScan.total_targets || 1)) * 100}%` }"
+          :style="{ width: `${discoveryStore.currentScan.progress_pct || ((discoveryStore.currentScan.scanned_hosts / (discoveryStore.currentScan.total_targets || 1)) * 100)}%` }"
         ></div>
       </div>
     </div>
@@ -134,6 +137,7 @@ async function handleCancelScan() {
             <th class="py-3 px-4">IPv4 Address</th>
             <th class="py-3 px-4">MAC Address</th>
             <th class="py-3 px-4">Vendor Resolution</th>
+            <th class="py-3 px-4">Inferred Type</th>
             <th class="py-3 px-4">Latency (RTT)</th>
             <th class="py-3 px-4">Status</th>
             <th class="py-3 px-4 text-right">Inventory Action</th>
@@ -160,9 +164,21 @@ async function handleCancelScan() {
               {{ host.vendor || 'Generic Network Card' }}
             </td>
 
+            <!-- Inferred Type -->
+            <td class="py-2.5 px-4">
+              <span class="px-2 py-0.5 rounded text-[10px] bg-tactical-panel border border-slate-700 font-mono text-cyan-300 font-bold">
+                {{ host.inferred_type || 'PC' }}
+              </span>
+            </td>
+
             <!-- Latency -->
-            <td class="py-2.5 px-4 text-tactical-online font-bold">
-              {{ host.response_time_ms.toFixed(1) }} ms
+            <td class="py-2.5 px-4 font-bold">
+              <span v-if="host.response_time_ms !== null && host.response_time_ms !== undefined" class="text-tactical-online">
+                {{ host.response_time_ms.toFixed(1) }} ms
+              </span>
+              <span v-else class="text-slate-500 italic">
+                N/A
+              </span>
             </td>
 
             <!-- Status -->
@@ -196,8 +212,8 @@ async function handleCancelScan() {
           </tr>
 
           <!-- Empty State -->
-          <tr v-if="!discoveryStore.currentScan || discoveryStore.currentScan.hosts.length === 0">
-            <td colspan="6" class="py-12 text-center text-slate-500">
+          <tr v-if="!discoveryStore.currentScan || !discoveryStore.currentScan.hosts || discoveryStore.currentScan.hosts.length === 0">
+            <td colspan="7" class="py-12 text-center text-slate-500">
               <Radar class="w-8 h-8 mx-auto mb-2 text-slate-600" />
               <p>No active scan results. Enter a subnet CIDR above and click "Launch Sweep".</p>
             </td>

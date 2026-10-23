@@ -5,10 +5,14 @@ namespace NetworkObserver.Application.DTOs;
 /// api_contracts_specification.md Section 8.
 /// </summary>
 public record SubnetScanRequest(
-    string SubnetCidr,
+    string? SubnetCidr = null,
+    string? Cidr = null,
     string? SnmpCommunity = "public",
     string? SnmpVersion = "v2c"
-);
+)
+{
+    public string EffectiveCidr => !string.IsNullOrWhiteSpace(SubnetCidr) ? SubnetCidr : Cidr ?? string.Empty;
+}
 
 public record SubnetScanInitResponse(
     string ScanId,
@@ -23,12 +27,16 @@ public record DiscoveredAssetDto(
     string MacAddress,
     string? Vendor,
     string InferredType,
-    bool IsAlreadyRegistered
+    bool IsAlreadyRegistered,
+    double? ResponseTimeMs = null
 );
 
 public record SubnetScanStatusResponse(
     string ScanId,
     string Status,
     double ProgressPct,
-    IReadOnlyList<DiscoveredAssetDto> DiscoveredAssets
+    IReadOnlyList<DiscoveredAssetDto> DiscoveredAssets,
+    string? TargetCidr = null,
+    int TotalIps = 0,
+    int ScannedIps = 0
 );
