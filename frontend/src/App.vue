@@ -451,7 +451,7 @@ function filterByStatusFromHud(status: string) {
         <router-view v-slot="{ Component }">
           <component 
             :is="Component"
-            @inspect="(id: number) => id && id > 0 && devicesStore.selectDevice(id)"
+            @inspect="(id: number) => route.path === '/topology' && id && id > 0 && devicesStore.selectDevice(id)"
             @create="openCreateDeviceModal"
             @edit="handleGenericEdit"
             @delete="(d: Device) => openDeleteDeviceModal(d)"
@@ -464,9 +464,9 @@ function filterByStatusFromHud(status: string) {
       </main>
     </div>
 
-    <!-- Slide-Over Telemetry Inspector (Right Drawer) -->
+    <!-- Slide-Over Telemetry Inspector (Right Drawer - Exclusively in Topology Canvas) -->
     <TelemetryInspector 
-      v-if="devicesStore.selectedDevice"
+      v-if="route.path === '/topology' && devicesStore.selectedDevice"
       @close="devicesStore.clearSelectedDevice()"
       @edit="(d) => openEditDeviceModal(d)"
       @delete="(d) => openDeleteDeviceModal(d)"

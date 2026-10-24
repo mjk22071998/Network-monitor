@@ -214,7 +214,7 @@ public class DeviceServiceTests
     }
 
     [Fact]
-    public async Task UpdateDeviceAsync_WhenMacAddressChanged_ThrowsMacAddressImmutableException()
+    public async Task UpdateDeviceAsync_WhenMacAddressChanged_UpdatesMacAddressAndValidatesDuplicate()
     {
         // Arrange
         _deviceRepo.AddDevice(new Device
@@ -230,20 +230,43 @@ public class DeviceServiceTests
         var request = new UpdateDeviceRequest(
             DisplayName: "LAB101-PC-01-REV2",
             PrimaryIp: "192.168.1.120",
-            TypeId: 5,
+            TypeId: (short)4,
             GroupId: 3,
             ParentDeviceId: null,
             Vendor: "Siemens",
             Model: "S7",
             Zone: "Floor 1",
             IsMonitored: true,
-            MacAddress: "00:1A:2B:AA:01:99" // Attempted MAC change!
+            MacAddress: "00:1A:2B:AA:01:99"
+        );
+
+        // Act
+        var result = await _deviceService.UpdateDeviceAsync(54, request, RoleType.NetworkAdmin);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal("00:1A:2B:AA:01:99", result.MacAddress);
+        Assert.Equal((short)4, result.TypeId);
+    }
+
+    [Fact]
+    public async Task UpdateDeviceAsync_WhenMacAddressDuplicate_ThrowsDuplicateMacException()
+    {
+        // Arrange
+        _deviceRepo.AddDevice(new Device { DeviceId = 54, DisplayName = "PC-1", PrimaryIp = "192.168.1.10", MacAddress = "00:1A:2B:AA:01:01", TypeId = 5, GroupId = 1 });
+        _deviceRepo.AddDevice(new Device { DeviceId = 55, DisplayName = "PC-2", PrimaryIp = "192.168.1.11", MacAddress = "00:1A:2B:AA:01:02", TypeId = 5, GroupId = 1 });
+
+        var request = new UpdateDeviceRequest(
+            DisplayName: "PC-1-UPDATED",
+            PrimaryIp: "192.168.1.10",
+            TypeId: 5,
+            GroupId: 1,
+            MacAddress: "00:1A:2B:AA:01:02"
         );
 
         // Act & Assert
-        var ex = await Assert.ThrowsAsync<MacAddressImmutableException>(() =>
+        await Assert.ThrowsAsync<DuplicateMacException>(() =>
             _deviceService.UpdateDeviceAsync(54, request, RoleType.NetworkAdmin));
-        Assert.Equal("DEVICE_MAC_IMMUTABLE", ex.ErrorCode);
     }
 
     [Fact]

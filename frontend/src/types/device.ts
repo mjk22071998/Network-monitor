@@ -84,6 +84,8 @@ export interface CreateDeviceRequest {
 export interface UpdateDeviceRequest {
   display_name?: string;
   primary_ip?: string;
+  mac_address?: string;
+  type_id?: number;
   group_id?: number;
   parent_device_id?: number | null;
   zone?: string | null;

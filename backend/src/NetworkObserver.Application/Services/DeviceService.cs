@@ -205,13 +205,18 @@ public class DeviceService : IDeviceService
         ValidateRoleForEquipmentTier(device.TypeId, operatorRole, "modify");
         ValidateRoleForEquipmentTier(request.TypeId, operatorRole, "modify");
 
-        // Hardware Immutability Check: MAC Address cannot be changed
+        // MAC Address validation and safe update
         if (!string.IsNullOrWhiteSpace(request.MacAddress))
         {
             var requestedMac = NormalizeMacAddress(request.MacAddress);
             if (!string.Equals(device.MacAddress, requestedMac, StringComparison.OrdinalIgnoreCase))
             {
-                throw new MacAddressImmutableException(device.MacAddress, request.MacAddress);
+                var existingWithMac = await _deviceRepository.GetByMacAsync(requestedMac, ct);
+                if (existingWithMac != null && existingWithMac.DeviceId != deviceId)
+                {
+                    throw new DuplicateMacException(requestedMac);
+                }
+                device.MacAddress = requestedMac;
             }
         }
 

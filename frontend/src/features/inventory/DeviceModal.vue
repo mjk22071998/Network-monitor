@@ -50,34 +50,38 @@ const candidateParents = computed(() => {
 // MAC Regex: ^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$
 const macRegex = /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/;
 
-watch(() => props.isOpen, (newVal) => {
-  if (newVal) {
-    errorMessage.value = null;
-    if (props.deviceToEdit) {
-      displayName.value = props.deviceToEdit.display_name;
-      primaryIp.value = props.deviceToEdit.primary_ip;
-      macAddress.value = props.deviceToEdit.mac_address;
-      typeId.value = props.deviceToEdit.type_id;
-      groupId.value = props.deviceToEdit.group_id;
-      parentDeviceId.value = props.deviceToEdit.parent_device_id;
-      zone.value = props.deviceToEdit.zone || '';
-      vendor.value = props.deviceToEdit.vendor || '';
-      model.value = props.deviceToEdit.model || '';
-      isMonitored.value = props.deviceToEdit.is_monitored;
-    } else {
-      displayName.value = '';
-      primaryIp.value = '';
-      macAddress.value = '';
-      typeId.value = 5;
-      groupId.value = flatGroups.value.length > 0 ? flatGroups.value[0].id : 1;
-      parentDeviceId.value = null;
-      zone.value = 'Computer Lab A';
-      vendor.value = '';
-      model.value = '';
-      isMonitored.value = true;
+watch(
+  () => [props.isOpen, props.deviceToEdit] as const,
+  ([newOpen, newDevice]) => {
+    if (newOpen) {
+      errorMessage.value = null;
+      if (newDevice) {
+        displayName.value = newDevice.display_name || '';
+        primaryIp.value = newDevice.primary_ip || '';
+        macAddress.value = newDevice.mac_address || '';
+        typeId.value = newDevice.type_id !== undefined && newDevice.type_id !== null ? Number(newDevice.type_id) : 5;
+        groupId.value = newDevice.group_id !== undefined && newDevice.group_id !== null ? Number(newDevice.group_id) : 1;
+        parentDeviceId.value = newDevice.parent_device_id !== undefined && newDevice.parent_device_id !== null ? Number(newDevice.parent_device_id) : null;
+        zone.value = newDevice.zone || '';
+        vendor.value = newDevice.vendor || '';
+        model.value = newDevice.model || '';
+        isMonitored.value = newDevice.is_monitored ?? true;
+      } else {
+        displayName.value = '';
+        primaryIp.value = '';
+        macAddress.value = '';
+        typeId.value = 5;
+        groupId.value = flatGroups.value.length > 0 ? flatGroups.value[0].id : 1;
+        parentDeviceId.value = null;
+        zone.value = 'Computer Lab A';
+        vendor.value = '';
+        model.value = '';
+        isMonitored.value = true;
+      }
     }
-  }
-});
+  },
+  { immediate: true }
+);
 
 async function handleSubmit() {
   errorMessage.value = null;
@@ -87,15 +91,13 @@ async function handleSubmit() {
     return;
   }
 
-  if (!isEditMode.value) {
-    if (!macAddress.value.trim()) {
-      errorMessage.value = 'MAC Address is required for new devices.';
-      return;
-    }
-    if (!macRegex.test(macAddress.value.trim())) {
-      errorMessage.value = 'Invalid MAC format. Use standard colon or hyphen format (e.g. 00:1A:2B:3C:4D:5E).';
-      return;
-    }
+  if (!macAddress.value.trim()) {
+    errorMessage.value = 'MAC Address is required.';
+    return;
+  }
+  if (!macRegex.test(macAddress.value.trim())) {
+    errorMessage.value = 'Invalid MAC format. Use standard colon or hyphen format (e.g. 00:1A:2B:3C:4D:5E).';
+    return;
   }
 
   isSubmitting.value = true;
@@ -104,8 +106,10 @@ async function handleSubmit() {
       const payload: UpdateDeviceRequest = {
         display_name: displayName.value.trim(),
         primary_ip: primaryIp.value.trim(),
-        group_id: groupId.value,
-        parent_device_id: parentDeviceId.value,
+        mac_address: macAddress.value.trim().toUpperCase(),
+        type_id: Number(typeId.value),
+        group_id: Number(groupId.value),
+        parent_device_id: parentDeviceId.value ? Number(parentDeviceId.value) : null,
         zone: zone.value.trim() || null,
         vendor: vendor.value.trim() || null,
         model: model.value.trim() || null,
@@ -117,9 +121,9 @@ async function handleSubmit() {
         display_name: displayName.value.trim(),
         primary_ip: primaryIp.value.trim(),
         mac_address: macAddress.value.trim().toUpperCase(),
-        type_id: typeId.value,
-        group_id: groupId.value,
-        parent_device_id: parentDeviceId.value,
+        type_id: Number(typeId.value),
+        group_id: Number(groupId.value),
+        parent_device_id: parentDeviceId.value ? Number(parentDeviceId.value) : null,
         zone: zone.value.trim() || null,
         vendor: vendor.value.trim() || null,
         model: model.value.trim() || null,
@@ -176,32 +180,28 @@ async function handleSubmit() {
       </div>
 
       <div class="grid grid-cols-2 gap-4">
-        <!-- MAC Address (Immutable after creation) -->
+        <!-- MAC Address -->
         <div>
-          <label class="block text-slate-400 mb-1 uppercase tracking-wider text-[10px] font-bold flex items-center justify-between">
-            <span>MAC Address *</span>
-            <span v-if="isEditMode" class="text-[9px] text-slate-500">(Locked)</span>
+          <label class="block text-slate-400 mb-1 uppercase tracking-wider text-[10px] font-bold">
+            MAC Address *
           </label>
           <input
             v-model="macAddress"
             type="text"
-            :disabled="isEditMode"
             required
             placeholder="00:1A:2B:3C:4D:5E"
-            class="w-full bg-tactical-panel border border-tactical-border rounded px-3 py-2 text-slate-200 focus:outline-none focus:border-tactical-cyan disabled:opacity-50"
+            class="w-full bg-tactical-panel border border-tactical-border rounded px-3 py-2 text-slate-200 focus:outline-none focus:border-tactical-cyan"
           />
         </div>
 
         <!-- Device Type -->
         <div>
-          <label class="block text-slate-400 mb-1 uppercase tracking-wider text-[10px] font-bold flex items-center justify-between">
-            <span>Device Type *</span>
-            <span v-if="isEditMode" class="text-[9px] text-slate-500">(Locked)</span>
+          <label class="block text-slate-400 mb-1 uppercase tracking-wider text-[10px] font-bold">
+            Device Type *
           </label>
           <select
             v-model="typeId"
-            :disabled="isEditMode"
-            class="w-full bg-tactical-panel border border-tactical-border rounded px-3 py-2 text-slate-200 focus:outline-none focus:border-tactical-cyan disabled:opacity-50"
+            class="w-full bg-tactical-panel border border-tactical-border rounded px-3 py-2 text-slate-200 focus:outline-none focus:border-tactical-cyan"
           >
             <option :value="1">CORE_ROUTER (Core Router / Gateway)</option>
             <option :value="2">AGGREGATE_SWITCH (Distribution Switch)</option>

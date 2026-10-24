@@ -5,7 +5,6 @@ import PaginationFooter from '../../components/common/PaginationFooter.vue';
 import { 
   Plus, 
   Search, 
-  Activity, 
   Edit3, 
   Trash2, 
   Server, 
@@ -126,8 +125,7 @@ function getTypeIcon(typeId: number) {
           <tr 
             v-for="d in devicesStore.paginatedDevices" 
             :key="d.device_id"
-            class="hover:bg-slate-900/60 transition group cursor-pointer"
-            @click="d.device_id && d.device_id > 0 && emit('inspect', d.device_id)"
+            class="hover:bg-slate-900/60 transition group"
           >
             <!-- Status Badge -->
             <td class="py-2.5 px-4 whitespace-nowrap">
@@ -192,14 +190,6 @@ function getTypeIcon(typeId: number) {
             <!-- Actions -->
             <td class="py-2.5 px-4 text-right whitespace-nowrap" @click.stop>
               <div class="inline-flex items-center space-x-1.5">
-                <button
-                  @click="d.device_id && d.device_id > 0 && emit('inspect', d.device_id)"
-                  class="p-1 rounded bg-tactical-panel border border-tactical-border text-slate-400 hover:text-tactical-cyan hover:border-tactical-cyan transition"
-                  title="Inspect Live Telemetry"
-                >
-                  <Activity class="w-3.5 h-3.5" />
-                </button>
-
                 <button
                   @click="emit('edit', d)"
                   class="p-1 rounded bg-tactical-panel border border-tactical-border text-slate-400 hover:text-tactical-amber hover:border-tactical-amber transition"
