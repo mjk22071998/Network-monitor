@@ -81,10 +81,10 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-// SPA Fallback for client-side routing
+// SPA Fallback for client-side routing (excluding API routes so unmatched API endpoints return 404 JSON)
 if (staticFilesPath != null)
 {
-    app.MapFallbackToFile("index.html", new StaticFileOptions
+    app.MapFallbackToFile("{*path:regex(^(?!api/).*$)}", "index.html", new StaticFileOptions
     {
         FileProvider = new PhysicalFileProvider(staticFilesPath)
     });

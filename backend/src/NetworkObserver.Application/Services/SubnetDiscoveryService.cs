@@ -62,6 +62,11 @@ public class SubnetDiscoveryService : ISubnetDiscoveryService
             throw new SubnetValidationException("Subnet CIDR is required.");
         }
 
+        if (request.TimeoutMs.HasValue && (request.TimeoutMs.Value < 100 || request.TimeoutMs.Value > 10000))
+        {
+            throw new SubnetValidationException("Timeout must be between 100 ms and 10,000 ms.");
+        }
+
         var hostIps = ParseAndValidateCidr(targetCidr);
 
         // Enforce max 1 concurrent scan per site (api_contracts_specification.md Section 8.1)

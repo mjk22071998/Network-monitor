@@ -8,7 +8,8 @@ public record SubnetScanRequest(
     string? SubnetCidr = null,
     string? Cidr = null,
     string? SnmpCommunity = "public",
-    string? SnmpVersion = "v2c"
+    string? SnmpVersion = "v2c",
+    int? TimeoutMs = null
 )
 {
     public string EffectiveCidr => !string.IsNullOrWhiteSpace(SubnetCidr) ? SubnetCidr : Cidr ?? string.Empty;
