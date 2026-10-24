@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 import { 
   ShieldCheck, 
   Lock, 
@@ -12,6 +13,8 @@ import {
 } from 'lucide-vue-next';
 import { useAuthStore } from '../../stores/auth';
 
+const router = useRouter();
+const route = useRoute();
 const authStore = useAuthStore();
 const username = ref<string>('admin');
 const password = ref<string>('Admin@NetworkObserver2026!');
@@ -23,7 +26,11 @@ function togglePasswordVisibility() {
 
 async function handleLogin() {
   if (!username.value || !password.value) return;
-  await authStore.login(username.value, password.value);
+  const success = await authStore.login(username.value, password.value);
+  if (success) {
+    const redirectPath = (route.query.redirect as string) || '/topology';
+    router.push(redirectPath);
+  }
 }
 </script>
 

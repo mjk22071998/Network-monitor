@@ -580,9 +580,9 @@ function initCytoscape() {
       animate: false // Synchronous layout avoids visual bouncing and double-render flashes
     } as any,
     zoom: 1,
-    minZoom: 0.25,
-    maxZoom: 3.0,
-    wheelSensitivity: 0.22, // Natural cursor-anchored wheel zooming
+    minZoom: 0.15,
+    maxZoom: 4.0,
+    wheelSensitivity: 1.0, // Standard, normal, natural wheel zooming speed
     boxSelectionEnabled: false,
     autounselectify: false
   });
@@ -670,7 +670,7 @@ function zoomIn() {
   const currentZoom = cy.value.zoom();
   const rect = cyContainerRef.value.getBoundingClientRect();
   cy.value.zoom({
-    level: Math.min(3.0, currentZoom * 1.25),
+    level: Math.min(4.0, currentZoom * 1.35),
     renderedPosition: { x: rect.width / 2, y: rect.height / 2 }
   });
 }
@@ -680,7 +680,7 @@ function zoomOut() {
   const currentZoom = cy.value.zoom();
   const rect = cyContainerRef.value.getBoundingClientRect();
   cy.value.zoom({
-    level: Math.max(0.25, currentZoom * 0.8),
+    level: Math.max(0.15, currentZoom * 0.74),
     renderedPosition: { x: rect.width / 2, y: rect.height / 2 }
   });
 }
