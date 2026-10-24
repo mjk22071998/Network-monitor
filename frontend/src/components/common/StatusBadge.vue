@@ -23,7 +23,7 @@ const badgeConfig = computed(() => {
     case 'VALID':
     case 'AVAILABLE':
       return {
-        label: s,
+        label: 'REACHABLE',
         bgClass: 'bg-emerald-950/40 border-emerald-500/50 text-emerald-300',
         dotClass: 'bg-emerald-400 animate-pulse'
       };
@@ -32,18 +32,11 @@ const badgeConfig = computed(() => {
     case 'CONFLICT':
     case 'UNAVAILABLE':
     case 'ERROR':
+    case 'SUPPRESSED':
       return {
-        label: s,
+        label: 'UNREACHABLE',
         bgClass: 'bg-rose-950/40 border-rose-500/50 text-rose-300',
         dotClass: 'bg-rose-500 animate-ping'
-      };
-    case 'SUPPRESSED':
-    case 'INCOMPLETE':
-    case 'STALE':
-      return {
-        label: s,
-        bgClass: 'bg-amber-950/40 border-amber-500/50 text-amber-300',
-        dotClass: 'bg-amber-400'
       };
     case 'UNKNOWN':
     default:

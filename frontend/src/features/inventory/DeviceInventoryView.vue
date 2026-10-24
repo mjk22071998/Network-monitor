@@ -89,8 +89,7 @@ function getTypeIcon(typeId: number) {
           >
             <option value="ALL">All States</option>
             <option value="REACHABLE">Reachable (Online)</option>
-            <option value="UNREACHABLE">Unreachable (Outage)</option>
-            <option value="SUPPRESSED">Suppressed</option>
+            <option value="UNREACHABLE">Unreachable (Offline)</option>
             <option value="MAINTENANCE">Maintenance</option>
           </select>
         </div>

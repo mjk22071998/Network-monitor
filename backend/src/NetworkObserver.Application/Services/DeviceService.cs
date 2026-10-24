@@ -563,7 +563,7 @@ public class DeviceService : IDeviceService
     {
         1 => "REACHABLE",
         2 => "UNREACHABLE",
-        3 => "SUPPRESSED",
+        3 => "UNREACHABLE",
         _ => "UNKNOWN"
     };
 

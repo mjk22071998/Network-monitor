@@ -3,7 +3,7 @@ import { useDevicesStore } from '../../stores/devices';
 import { 
   CheckCircle2, 
   AlertCircle, 
-  ShieldAlert, 
+  Wrench, 
   Cpu, 
   HardDrive 
 } from 'lucide-vue-next';
@@ -64,21 +64,21 @@ function selectFilter(status: string) {
       </div>
     </div>
 
-    <!-- Card 3: Suppressed -->
+    <!-- Card 3: Maintenance -->
     <div 
-      @click="selectFilter('SUPPRESSED')"
-      class="p-3 rounded-lg bg-zinc-900/80 border border-zinc-800 hover:border-amber-500/40 cursor-pointer transition shadow-sm group"
+      @click="selectFilter('MAINTENANCE')"
+      class="p-3 rounded-lg bg-zinc-900/80 border border-zinc-800 hover:border-purple-500/40 cursor-pointer transition shadow-sm group"
     >
       <div class="flex items-center justify-between text-zinc-400 text-xs font-medium">
-        <span>Suppressed</span>
-        <ShieldAlert class="w-4 h-4 text-amber-400 group-hover:scale-110 transition" />
+        <span>Maintenance</span>
+        <Wrench class="w-4 h-4 text-purple-400 group-hover:scale-110 transition" />
       </div>
       <div class="mt-1.5 flex items-baseline gap-1.5">
-        <span class="text-xl font-bold text-amber-400 font-mono">{{ devicesStore.suppressedCount }}</span>
-        <span class="text-xs text-zinc-400">nodes</span>
+        <span class="text-xl font-bold text-purple-400 font-mono">{{ devicesStore.maintenanceCount }}</span>
+        <span class="text-xs text-zinc-400">devices</span>
       </div>
       <div class="mt-1 text-[10px] text-zinc-400">
-        Cascade suppressed
+        {{ devicesStore.maintenanceCount > 0 ? 'Under service' : 'All active' }}
       </div>
     </div>
 

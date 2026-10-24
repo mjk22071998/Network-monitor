@@ -37,12 +37,13 @@ export const useDevicesStore = defineStore('devices', () => {
   );
   
   const downCount = computed(() => 
-    rawList.value.filter(d => d.reachability_status === 'UNREACHABLE' && !d.is_in_maintenance).length
+    rawList.value.filter(d => (d.reachability_status === 'UNREACHABLE' || (d.reachability_status as any) === 'SUPPRESSED') && !d.is_in_maintenance).length
   );
   
-  const suppressedCount = computed(() => 
-    rawList.value.filter(d => d.reachability_status === 'SUPPRESSED' || d.is_in_maintenance).length
+  const maintenanceCount = computed(() => 
+    rawList.value.filter(d => d.is_in_maintenance).length
   );
+  const suppressedCount = maintenanceCount;
   
   const highCpuCount = computed(() => 
     rawList.value.filter(d => (d.latest_cpu_pct ?? 0) >= 80).length
@@ -199,6 +200,7 @@ export const useDevicesStore = defineStore('devices', () => {
     totalCount,
     upCount,
     downCount,
+    maintenanceCount,
     suppressedCount,
     highCpuCount,
     highRamCount,

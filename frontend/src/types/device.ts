@@ -20,7 +20,7 @@ export interface Device {
   updated_at: string;
   
   // Dynamic telemetry fields
-  reachability_status?: 'REACHABLE' | 'UNREACHABLE' | 'SUPPRESSED' | 'UNKNOWN';
+  reachability_status?: 'REACHABLE' | 'UNREACHABLE' | 'UNKNOWN';
   latest_latency_us?: number | null;
   latest_loss_pct?: number | null;
   latest_ntp_offset_us?: number | null;

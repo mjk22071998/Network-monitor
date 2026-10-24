@@ -12,15 +12,13 @@ export function normalizeDevice(d: any): Device {
   const reach = d.latest_reachability;
   const health = d.latest_health;
   
-  let status: 'REACHABLE' | 'UNREACHABLE' | 'SUPPRESSED' | 'UNKNOWN' = 'UNKNOWN';
+  let status: 'REACHABLE' | 'UNREACHABLE' | 'UNKNOWN' = 'UNKNOWN';
   if (reach?.status_code) {
     const sc = reach.status_code.toUpperCase();
     if (sc === 'REACHABLE' || sc === 'ONLINE') {
       status = 'REACHABLE';
-    } else if (sc === 'UNREACHABLE' || sc === 'OFFLINE') {
+    } else if (sc === 'UNREACHABLE' || sc === 'OFFLINE' || sc === 'SUPPRESSED') {
       status = 'UNREACHABLE';
-    } else if (sc === 'SUPPRESSED') {
-      status = 'SUPPRESSED';
     } else {
       status = 'UNKNOWN';
     }
@@ -30,7 +28,7 @@ export function normalizeDevice(d: any): Device {
 
   return {
     ...d,
-    reachability_status: reach?.status_code ? status : (d.reachability_status || status),
+    reachability_status: status,
     latest_latency_us: reach?.latency_us ?? d.latest_latency_us ?? null,
     latest_loss_pct: reach?.loss_percentage ?? d.latest_loss_pct ?? null,
     latest_ntp_offset_us: reach?.ntp_offset_us ?? d.latest_ntp_offset_us ?? null,
