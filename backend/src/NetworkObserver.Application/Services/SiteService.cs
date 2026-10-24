@@ -55,7 +55,7 @@ public class SiteService : ISiteService
             throw new SiteValidationException("Site name cannot exceed 100 characters.");
         }
 
-        var trimmedCode = request.FacilityCode?.Trim();
+        var trimmedCode = request.EffectiveFacilityCode?.Trim();
         if (trimmedCode != null && trimmedCode.Length > 50)
         {
             throw new SiteValidationException("Facility code cannot exceed 50 characters.");

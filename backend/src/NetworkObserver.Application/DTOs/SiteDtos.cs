@@ -15,8 +15,12 @@ public record SiteDto(
 public record UpdateSiteRequest(
     string SiteName,
     string? FacilityCode,
-    string? Description
-);
+    string? Description,
+    string? SiteCode = null
+)
+{
+    public string? EffectiveFacilityCode => !string.IsNullOrWhiteSpace(FacilityCode) ? FacilityCode : SiteCode;
+}
 
 public record UpdateSiteResponse(
     int SiteId,

@@ -44,7 +44,7 @@ watch(() => configStore.site, () => {
 function populateForms() {
   if (configStore.site) {
     siteName.value = configStore.site.site_name;
-    siteCode.value = configStore.site.site_code;
+    siteCode.value = configStore.site.facility_code || configStore.site.site_code || '';
     siteDesc.value = configStore.site.description || '';
   }
   if (configStore.monitoringConfig) {
@@ -63,7 +63,8 @@ async function handleSaveSite() {
   try {
     await configStore.updateSite({
       site_name: siteName.value.trim(),
-      site_code: siteCode.value.trim(),
+      facility_code: siteCode.value.trim() || null,
+      site_code: siteCode.value.trim() || null,
       description: siteDesc.value.trim() || null
     });
     siteSuccess.value = 'Site enclave metadata updated successfully!';
