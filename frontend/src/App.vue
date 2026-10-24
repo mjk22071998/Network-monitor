@@ -12,7 +12,8 @@ import {
   FileSpreadsheet, 
   Settings, 
   KeyRound, 
-  Plus 
+  Plus,
+  Users
 } from 'lucide-vue-next';
 import axios from 'axios';
 import { useAuthStore } from './stores/auth';
@@ -27,6 +28,7 @@ import GroupHierarchyView from './features/settings/GroupHierarchyView.vue';
 import SubnetDiscoveryView from './features/discovery/SubnetDiscoveryView.vue';
 import BulkIngestView from './features/inventory/BulkIngestView.vue';
 import AuditTrailView from './features/audit/AuditTrailView.vue';
+import UserManagementView from './features/users/UserManagementView.vue';
 import EnclaveSettingsView from './features/settings/EnclaveSettingsView.vue';
 import TelemetryInspector from './features/telemetry/TelemetryInspector.vue';
 import DeviceModal from './features/inventory/DeviceModal.vue';
@@ -54,7 +56,7 @@ const isLoadingHealth = ref<boolean>(false);
 const errorMsg = ref<string | null>(null);
 
 // Active Tab state
-type TabType = 'TOPOLOGY' | 'INVENTORY' | 'LAB_GROUPS' | 'SUBNET_SWEEP' | 'BULK_INGEST' | 'AUDIT_TRAIL' | 'SETTINGS';
+type TabType = 'TOPOLOGY' | 'INVENTORY' | 'LAB_GROUPS' | 'SUBNET_SWEEP' | 'BULK_INGEST' | 'AUDIT_TRAIL' | 'USERS' | 'SETTINGS';
 const currentTab = ref<TabType>('TOPOLOGY');
 
 const tabTitle = computed(() => {
@@ -65,6 +67,7 @@ const tabTitle = computed(() => {
     case 'SUBNET_SWEEP': return 'Subnet Sweep Discovery';
     case 'BULK_INGEST': return 'Bulk Ingestion Pipeline';
     case 'AUDIT_TRAIL': return 'Security Audit Trail';
+    case 'USERS': return 'Operator Governance & Users';
     case 'SETTINGS': return 'Enclave Settings';
     default: return 'Overview';
   }
@@ -328,6 +331,17 @@ function filterByStatusFromHud(status: string) {
           </button>
 
           <button
+            @click="currentTab = 'USERS'"
+            class="w-full flex items-center gap-3 px-3 py-2 rounded-md text-xs font-medium transition-colors text-left"
+            :class="currentTab === 'USERS'
+              ? 'bg-zinc-800 text-zinc-100 shadow-sm'
+              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'"
+          >
+            <Users class="w-4 h-4 text-purple-400" />
+            <span>User Management</span>
+          </button>
+
+          <button
             @click="currentTab = 'SETTINGS'"
             class="w-full flex items-center gap-3 px-3 py-2 rounded-md text-xs font-medium transition-colors text-left"
             :class="currentTab === 'SETTINGS'
@@ -457,6 +471,10 @@ function filterByStatusFromHud(status: string) {
 
         <AuditTrailView 
           v-else-if="currentTab === 'AUDIT_TRAIL'"
+        />
+
+        <UserManagementView 
+          v-else-if="currentTab === 'USERS'"
         />
 
         <EnclaveSettingsView 
