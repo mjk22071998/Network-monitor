@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, watch, shallowRef } from 'vue';
+import cytoscape, { type Core, type ElementsDefinition, type NodeSingular } from 'cytoscape';
+import dagre from 'cytoscape-dagre';
 import { useDevicesStore } from '../../stores/devices';
 import { useGroupsStore } from '../../stores/groups';
 import type { Device } from '../../types/device';
@@ -8,15 +10,15 @@ import {
   ZoomIn, 
   ZoomOut, 
   RotateCcw, 
-  Router,
   ArrowLeftRight,
-  Monitor,
-  Server,
   Network,
-  GitFork,
   Layers
 } from 'lucide-vue-next';
-import TopologyDeviceTreeNode from './TopologyDeviceTreeNode.vue';
+
+// Register dagre layout plugin with Cytoscape once
+if (!cytoscape('core', 'dagre')) {
+  cytoscape.use(dagre);
+}
 
 const devicesStore = useDevicesStore();
 const groupsStore = useGroupsStore();
@@ -25,134 +27,37 @@ const emit = defineEmits<{
   (e: 'inspect', deviceId: number): void;
 }>();
 
-// Two distinct tree hierarchy models requested by user:
-// 1. ROUTER_GROUPS_PCS: Core Router -> Aggregate Router -> Computer Lab Groups -> PCs below them
-// 2. DEVICE_TO_DEVICE: Core Router -> Aggregate Switch -> Access Switch -> Child Endpoints
+// Two distinct topology models requested by user:
+// 1. ROUTER_GROUPS_PCS: Core Router -> Aggregate Switch -> Computer Lab Groups -> PCs below them
+// 2. DEVICE_TO_DEVICE: Core Router -> Aggregate Switch -> Access Switch -> Child Endpoints (Direct links, no titles/groups)
 export type TopologyLayoutMode = 'ROUTER_GROUPS_PCS' | 'DEVICE_TO_DEVICE';
 const layoutMode = ref<TopologyLayoutMode>('ROUTER_GROUPS_PCS');
 
-onMounted(async () => {
-  if (!groupsStore.groupsTree || groupsStore.groupsTree.length === 0) {
-    await groupsStore.fetchGroups();
-  }
-});
+// DOM container reference
+const cyContainerRef = ref<HTMLDivElement | null>(null);
 
-// Pan and Zoom state
-const canvasContainerRef = ref<HTMLDivElement | null>(null);
-const scale = ref<number>(1);
-const panX = ref<number>(50);
-const panY = ref<number>(30);
-const isDragging = ref<boolean>(false);
-const startMouseX = ref<number>(0);
-const startMouseY = ref<number>(0);
+// Cytoscape Core instance (shallowRef to adhere to strict 500MB memory allowance)
+const cy = shallowRef<Core | null>(null);
 
-function handleMouseDown(e: MouseEvent) {
-  if (e.button !== 0) return; // Only left click drag
-  isDragging.value = true;
-  startMouseX.value = e.clientX - panX.value;
-  startMouseY.value = e.clientY - panY.value;
+// Hover Card / Tooltip State
+interface HoveredNodeData {
+  deviceId?: number;
+  displayName: string;
+  ip: string;
+  mac?: string;
+  typeName: string;
+  groupName?: string;
+  status: 'REACHABLE' | 'UNREACHABLE' | 'UNKNOWN';
+  isMaintenance: boolean;
+  latencyUs?: number | null;
+  lossPct?: number | null;
+  x: number;
+  y: number;
 }
-
-function handleMouseMove(e: MouseEvent) {
-  if (!isDragging.value) return;
-  panX.value = Math.round(e.clientX - startMouseX.value);
-  panY.value = Math.round(e.clientY - startMouseY.value);
-}
-
-function handleMouseUp() {
-  isDragging.value = false;
-}
-
-// Zoom centered precisely at a target coordinate (e.g. mouse cursor or screen center)
-function zoomAtPoint(targetX: number, targetY: number, deltaScale: number) {
-  const oldScale = scale.value;
-  const newScale = Math.min(3.0, Math.max(0.3, Number((oldScale + deltaScale).toFixed(3))));
-  if (newScale === oldScale) return;
-
-  // Find canvas-space coordinate currently under (targetX, targetY)
-  const worldX = (targetX - panX.value) / oldScale;
-  const worldY = (targetY - panY.value) / oldScale;
-
-  // Adjust pan so the canvas coordinate remains pinned under (targetX, targetY)
-  panX.value = Math.round(targetX - worldX * newScale);
-  panY.value = Math.round(targetY - worldY * newScale);
-  scale.value = newScale;
-}
-
-function handleWheel(e: WheelEvent) {
-  e.preventDefault();
-  if (!canvasContainerRef.value) return;
-
-  const rect = canvasContainerRef.value.getBoundingClientRect();
-  const mouseX = e.clientX - rect.left;
-  const mouseY = e.clientY - rect.top;
-
-  // Natural cursor-anchored zoom: 12% per wheel notch
-  const zoomFactor = e.deltaY < 0 ? 0.12 : -0.12;
-  const deltaScale = scale.value * zoomFactor;
-
-  zoomAtPoint(mouseX, mouseY, deltaScale);
-}
-
-function zoomIn() {
-  if (!canvasContainerRef.value) {
-    scale.value = Math.min(3.0, Number((scale.value + 0.15).toFixed(2)));
-    return;
-  }
-  const rect = canvasContainerRef.value.getBoundingClientRect();
-  zoomAtPoint(rect.width / 2, rect.height / 2, scale.value * 0.15);
-}
-
-function zoomOut() {
-  if (!canvasContainerRef.value) {
-    scale.value = Math.max(0.3, Number((scale.value - 0.15).toFixed(2)));
-    return;
-  }
-  const rect = canvasContainerRef.value.getBoundingClientRect();
-  zoomAtPoint(rect.width / 2, rect.height / 2, -scale.value * 0.15);
-}
-
-function resetView() {
-  scale.value = 1;
-  panX.value = 50;
-  panY.value = 30;
-}
+const hoveredNode = ref<HoveredNodeData | null>(null);
 
 // ---------------------------------------------------------------------------
-// Device Filters & Helpers
-// ---------------------------------------------------------------------------
-const allDevices = computed<Device[]>(() => {
-  return Array.isArray(devicesStore.devices) ? devicesStore.devices : [];
-});
-
-const coreRouters = computed(() => {
-  return allDevices.value.filter(d => d && d.type_id === 1);
-});
-
-const aggSwitches = computed(() => {
-  return allDevices.value.filter(d => d && d.type_id === 2);
-});
-
-// Root devices for pure device-to-device hierarchy (no parent or unresolvable parent)
-const rootDevices = computed<Device[]>(() => {
-  const all = allDevices.value;
-  if (all.length === 0) return [];
-
-  const deviceIdSet = new Set(all.map(d => d.device_id));
-  
-  // Devices without parent or with unresolvable parent
-  const unparented = all.filter(d => !d.parent_device_id || !deviceIdSet.has(d.parent_device_id));
-
-  // Sort so Core Routers (type_id 1) appear first, then switches, then others
-  return unparented.sort((a, b) => {
-    if (a.type_id === 1 && b.type_id !== 1) return -1;
-    if (b.type_id === 1 && a.type_id !== 1) return 1;
-    return (a.type_id || 99) - (b.type_id || 99);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Groups Helper for Router -> Groups -> PCs Mode
+// Helpers & Group Flattener
 // ---------------------------------------------------------------------------
 interface FlattenedGroup {
   group_id: number;
@@ -196,11 +101,23 @@ const flatGroups = computed(() => {
   return list;
 });
 
-// PCs and non-core equipment belonging to this group
+const allDevices = computed<Device[]>(() => {
+  return Array.isArray(devicesStore.devices) ? devicesStore.devices : [];
+});
+
+function getDeviceTypeName(typeId: number): string {
+  switch (typeId) {
+    case 1: return 'Core Router';
+    case 2: return 'Aggregate Switch';
+    case 3: return 'Access Switch';
+    case 4: return 'Server / Storage';
+    case 5: return 'Workstation PC';
+    default: return 'Network Device';
+  }
+}
+
 function getDevicesForGroup(groupId: number): Device[] {
   const knownGroupIds = new Set(flatGroups.value.map(g => g.group_id));
-
-  // Exclude Core Routers (1) and Aggregate Switches (2) as they sit at the top levels
   if (groupId === 1) {
     return allDevices.value.filter(d => 
       (d.group_id === 1 || !knownGroupIds.has(d.group_id)) && 
@@ -213,537 +130,738 @@ function getDevicesForGroup(groupId: number): Device[] {
   );
 }
 
-function getGroupStats(groupId: number) {
-  const devs = getDevicesForGroup(groupId);
-  const total = devs.length;
-  let online = 0;
-  let offline = 0;
-  for (const d of devs) {
-    if (isReachable(d.reachability_status)) online++;
-    else offline++;
-  }
-  return { total, online, offline };
-}
-
 // ---------------------------------------------------------------------------
-// Lucide Icon & Status Helpers
+// Build Cytoscape Elements for Mode 1 & Mode 2
 // ---------------------------------------------------------------------------
-function getDeviceIcon(typeId?: number) {
-  switch (typeId) {
-    case 1:
-      return Router;
-    case 2:
-    case 3:
-      return ArrowLeftRight;
-    case 4:
-      return Server;
-    case 5:
-    default:
-      return Monitor;
-  }
-}
+function buildElements(): ElementsDefinition {
+  const nodes: any[] = [];
+  const edges: any[] = [];
 
-function getDeviceTypeName(typeId?: number): string {
-  switch (typeId) {
-    case 1: return 'Core Router';
-    case 2: return 'Distribution Switch';
-    case 3: return 'Access Switch';
-    case 4: return 'Server';
-    case 5: default: return 'Workstation PC';
-  }
-}
+  const coreRouters = allDevices.value.filter(d => d.type_id === 1);
+  const aggSwitches = allDevices.value.filter(d => d.type_id === 2);
 
-function isReachable(status?: string | null): boolean {
-  if (!status) return false;
-  const s = status.toUpperCase();
-  return s === 'REACHABLE' || s === 'ONLINE';
-}
+  if (layoutMode.value === 'ROUTER_GROUPS_PCS') {
+    // =========================================================================
+    // MODE 1: Core Router -> Aggregate Switch -> Computer Lab Groups -> PCs
+    // =========================================================================
 
-function getNodeStatusColor(status?: string | null, isMaint?: boolean) {
-  if (isMaint) {
-    return {
-      icon: 'text-purple-400',
-      bg: 'bg-purple-500/10 hover:bg-purple-500/20',
-      border: 'border-purple-500/40 hover:border-purple-400',
-      glow: 'shadow-[0_0_12px_rgba(168,85,247,0.2)]',
-      dot: 'bg-purple-400',
-      badgeText: 'MAINTENANCE',
-      badgeClass: 'bg-purple-950/60 border-purple-500/40 text-purple-300'
-    };
-  }
+    // 1. Core Router(s)
+    if (coreRouters.length > 0) {
+      for (const router of coreRouters) {
+        nodes.push({
+          data: {
+            id: `d_${router.device_id}`,
+            deviceId: router.device_id,
+            label: router.display_name,
+            nodeType: 'core-router',
+            ip: router.primary_ip,
+            mac: router.mac_address,
+            typeName: 'Core Router',
+            groupName: 'Campus Gateway',
+            status: router.reachability_status,
+            isMaintenance: router.is_in_maintenance,
+            latencyUs: router.latest_latency_us,
+            lossPct: router.latest_loss_pct
+          }
+        });
+      }
+    } else {
+      // Fallback synthetic gateway node if none provisioned yet
+      nodes.push({
+        data: {
+          id: 'gateway_fallback',
+          label: 'Default Gateway (Unassigned)',
+          nodeType: 'core-router',
+          ip: '10.0.0.1',
+          typeName: 'Core Gateway',
+          status: 'UNKNOWN',
+          isMaintenance: false
+        }
+      });
+    }
 
-  if (isReachable(status)) {
-    return {
-      icon: 'text-emerald-400',
-      bg: 'bg-emerald-500/10 hover:bg-emerald-500/20',
-      border: 'border-emerald-500/50 hover:border-emerald-400',
-      glow: 'shadow-[0_0_14px_rgba(16,185,129,0.25)]',
-      dot: 'bg-emerald-400',
-      badgeText: 'ONLINE',
-      badgeClass: 'bg-emerald-950/60 border-emerald-500/40 text-emerald-300'
-    };
+    // 2. Aggregate Switch(es)
+    const primaryRouterId = coreRouters.length > 0 ? `d_${coreRouters[0].device_id}` : 'gateway_fallback';
+    if (aggSwitches.length > 0) {
+      for (const sw of aggSwitches) {
+        nodes.push({
+          data: {
+            id: `d_${sw.device_id}`,
+            deviceId: sw.device_id,
+            label: sw.display_name,
+            nodeType: 'agg-switch',
+            ip: sw.primary_ip,
+            mac: sw.mac_address,
+            typeName: 'Aggregate Switch',
+            groupName: 'Distribution Rack',
+            status: sw.reachability_status,
+            isMaintenance: sw.is_in_maintenance,
+            latencyUs: sw.latest_latency_us,
+            lossPct: sw.latest_loss_pct
+          }
+        });
+
+        // Edge: Core Router -> Agg Switch
+        edges.push({
+          data: {
+            id: `e_${primaryRouterId}_d_${sw.device_id}`,
+            source: primaryRouterId,
+            target: `d_${sw.device_id}`,
+            status: sw.reachability_status
+          }
+        });
+      }
+    }
+
+    // Determine upstream feed for groups: first agg switch or fallback to core router
+    const groupUplinkId = aggSwitches.length > 0 ? `d_${aggSwitches[0].device_id}` : primaryRouterId;
+
+    // 3. Computer Lab Groups
+    for (const group of flatGroups.value) {
+      const pcs = getDevicesForGroup(group.group_id);
+      const onlineCount = pcs.filter(p => p.reachability_status === 'REACHABLE').length;
+      const offlineCount = pcs.filter(p => p.reachability_status === 'UNREACHABLE').length;
+
+      let groupStatus: 'REACHABLE' | 'UNREACHABLE' | 'UNKNOWN' = 'UNKNOWN';
+      if (pcs.length > 0) {
+        groupStatus = offlineCount === 0 ? 'REACHABLE' : 'UNREACHABLE';
+      }
+
+      const groupId = `g_${group.group_id}`;
+      nodes.push({
+        data: {
+          id: groupId,
+          label: `${group.group_name} (${pcs.length} PCs)`,
+          nodeType: 'group-node',
+          groupName: group.group_name,
+          pcCount: pcs.length,
+          onlineCount,
+          offlineCount,
+          status: groupStatus,
+          isMaintenance: false
+        }
+      });
+
+      // Edge: Agg Switch -> Group Card
+      edges.push({
+        data: {
+          id: `e_${groupUplinkId}_${groupId}`,
+          source: groupUplinkId,
+          target: groupId,
+          edgeType: 'group-link',
+          status: groupStatus
+        }
+      });
+
+      // 4. PCs belonging to this Lab Group
+      for (const pc of pcs) {
+        nodes.push({
+          data: {
+            id: `d_${pc.device_id}`,
+            deviceId: pc.device_id,
+            label: pc.display_name,
+            nodeType: pc.type_id === 4 ? 'server' : 'workstation',
+            ip: pc.primary_ip,
+            mac: pc.mac_address,
+            typeName: getDeviceTypeName(pc.type_id),
+            groupName: group.group_name,
+            status: pc.reachability_status,
+            isMaintenance: pc.is_in_maintenance,
+            latencyUs: pc.latest_latency_us,
+            lossPct: pc.latest_loss_pct
+          }
+        });
+
+        // Edge: Group Card -> PC
+        edges.push({
+          data: {
+            id: `e_${groupId}_d_${pc.device_id}`,
+            source: groupId,
+            target: `d_${pc.device_id}`,
+            status: pc.reachability_status
+          }
+        });
+      }
+    }
+
   } else {
-    return {
-      icon: 'text-rose-400',
-      bg: 'bg-rose-500/10 hover:bg-rose-500/20',
-      border: 'border-rose-500/50 hover:border-rose-400',
-      glow: 'shadow-[0_0_14px_rgba(244,63,94,0.25)]',
-      dot: 'bg-rose-500',
-      badgeText: 'OFFLINE',
-      badgeClass: 'bg-rose-950/60 border-rose-500/40 text-rose-300'
-    };
+    // =========================================================================
+    // MODE 2: Pure Device-to-Device Physical Hierarchy (No Titles, Direct Links)
+    // =========================================================================
+    const deviceIdSet = new Set(allDevices.value.map(d => d.device_id));
+
+    for (const dev of allDevices.value) {
+      let nodeType = 'workstation';
+      if (dev.type_id === 1) nodeType = 'core-router';
+      else if (dev.type_id === 2) nodeType = 'agg-switch';
+      else if (dev.type_id === 3) nodeType = 'access-switch';
+      else if (dev.type_id === 4) nodeType = 'server';
+
+      nodes.push({
+        data: {
+          id: `d_${dev.device_id}`,
+          deviceId: dev.device_id,
+          label: dev.display_name,
+          nodeType,
+          ip: dev.primary_ip,
+          mac: dev.mac_address,
+          typeName: getDeviceTypeName(dev.type_id),
+          groupName: dev.zone || undefined,
+          status: dev.reachability_status,
+          isMaintenance: dev.is_in_maintenance,
+          latencyUs: dev.latest_latency_us,
+          lossPct: dev.latest_loss_pct
+        }
+      });
+
+      // Direct parent_device_id interconnect
+      if (dev.parent_device_id && deviceIdSet.has(dev.parent_device_id)) {
+        edges.push({
+          data: {
+            id: `e_d_${dev.parent_device_id}_d_${dev.device_id}`,
+            source: `d_${dev.parent_device_id}`,
+            target: `d_${dev.device_id}`,
+            status: dev.reachability_status
+          }
+        });
+      }
+    }
   }
+
+  return { nodes, edges };
 }
+
+// ---------------------------------------------------------------------------
+// Cytoscape Cyber-Tactical Stylesheet
+// ---------------------------------------------------------------------------
+const cytoscapeStylesheet: any[] = [
+  // Global Node Base Styling
+  {
+    selector: 'node',
+    style: {
+      'label': 'data(label)',
+      'color': '#cbd5e1', // slate-300
+      'font-size': '10px',
+      'font-family': 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+      'font-weight': 600,
+      'text-valign': 'bottom',
+      'text-halign': 'center',
+      'text-margin-y': 6,
+      'text-outline-color': '#090d16',
+      'text-outline-width': 3,
+      'text-outline-opacity': 1,
+      'background-color': '#0f172a',
+      'border-width': 2,
+      'border-color': '#334155',
+      'transition-property': 'background-color, border-color, width, height',
+      'transition-duration': '0.18s'
+    }
+  },
+
+  // Node Shape Variations by Device Role
+  {
+    selector: 'node[nodeType = "core-router"]',
+    style: {
+      'shape': 'diamond',
+      'width': 50,
+      'height': 50
+    }
+  },
+  {
+    selector: 'node[nodeType = "agg-switch"]',
+    style: {
+      'shape': 'round-rectangle',
+      'corner-radius': 8,
+      'width': 46,
+      'height': 46
+    }
+  },
+  {
+    selector: 'node[nodeType = "access-switch"]',
+    style: {
+      'shape': 'round-rectangle',
+      'corner-radius': 6,
+      'width': 40,
+      'height': 40
+    }
+  },
+  {
+    selector: 'node[nodeType = "server"]',
+    style: {
+      'shape': 'barrel',
+      'width': 38,
+      'height': 38
+    }
+  },
+  {
+    selector: 'node[nodeType = "workstation"]',
+    style: {
+      'shape': 'ellipse',
+      'width': 34,
+      'height': 34
+    }
+  },
+
+  // Computer Lab Group Node (Mode 1)
+  {
+    selector: 'node[nodeType = "group-node"]',
+    style: {
+      'shape': 'round-rectangle',
+      'corner-radius': 10,
+      'width': 140,
+      'height': 34,
+      'background-color': '#18181b', // zinc-900
+      'border-color': '#d97706', // amber-600
+      'border-width': 2,
+      'text-valign': 'center',
+      'text-halign': 'center',
+      'text-margin-y': 0,
+      'color': '#fde68a', // amber-200
+      'font-size': '11px',
+      'font-weight': 700
+    }
+  },
+
+  // Reachability: REACHABLE (Online / Emerald Glow)
+  {
+    selector: 'node[status = "REACHABLE"]',
+    style: {
+      'background-color': '#064e3b', // emerald-950
+      'border-color': '#10b981', // emerald-500
+      'border-width': 2.5,
+      'underlay-color': '#10b981',
+      'underlay-padding': 4,
+      'underlay-opacity': 0.3
+    }
+  },
+
+  // Reachability: UNREACHABLE (Offline / Rose Red Glow)
+  {
+    selector: 'node[status = "UNREACHABLE"]',
+    style: {
+      'background-color': '#4c0519', // rose-950
+      'border-color': '#f43f5e', // rose-500
+      'border-width': 2.5,
+      'underlay-color': '#f43f5e',
+      'underlay-padding': 4,
+      'underlay-opacity': 0.35
+    }
+  },
+
+  // Maintenance Override: Amber Glow
+  {
+    selector: 'node[isMaintenance = true]',
+    style: {
+      'background-color': '#451a03', // amber-950
+      'border-color': '#f59e0b', // amber-500
+      'border-width': 2.5,
+      'underlay-color': '#f59e0b',
+      'underlay-padding': 4,
+      'underlay-opacity': 0.35
+    }
+  },
+
+  // Status: UNKNOWN (Slate)
+  {
+    selector: 'node[status = "UNKNOWN"]',
+    style: {
+      'background-color': '#1e293b',
+      'border-color': '#64748b',
+      'border-width': 2
+    }
+  },
+
+  // Active / Selected Node (Cyan Ring)
+  {
+    selector: 'node:selected',
+    style: {
+      'border-color': '#38bdf8', // sky-400
+      'border-width': 4,
+      'underlay-color': '#38bdf8',
+      'underlay-padding': 6,
+      'underlay-opacity': 0.4,
+      'color': '#38bdf8'
+    }
+  },
+
+  // Global Edge (Cable / Trunk)
+  {
+    selector: 'edge',
+    style: {
+      'width': 2,
+      'line-color': '#334155', // slate-700
+      'curve-style': 'taxi',
+      'taxi-direction': 'vertical',
+      'taxi-turn': 25,
+      'target-arrow-shape': 'triangle',
+      'target-arrow-color': '#475569',
+      'arrow-scale': 0.8,
+      'transition-property': 'line-color, target-arrow-color, width',
+      'transition-duration': '0.15s'
+    }
+  },
+
+  // Edge to Reachable Device
+  {
+    selector: 'edge[status = "REACHABLE"]',
+    style: {
+      'line-color': '#065f46', // emerald-800
+      'target-arrow-color': '#10b981' // emerald-500
+    }
+  },
+
+  // Edge to Unreachable Device (Dashed Rose Line)
+  {
+    selector: 'edge[status = "UNREACHABLE"]',
+    style: {
+      'line-color': '#881337', // rose-900
+      'target-arrow-color': '#f43f5e', // rose-500
+      'line-style': 'dashed'
+    }
+  },
+
+  // Edge to Group Card (Mode 1)
+  {
+    selector: 'edge[edgeType = "group-link"]',
+    style: {
+      'line-color': '#b45309', // amber-700
+      'target-arrow-color': '#f59e0b',
+      'width': 2.5
+    }
+  }
+];
+
+// ---------------------------------------------------------------------------
+// Cytoscape Lifecycle & Event Handlers
+// ---------------------------------------------------------------------------
+function initCytoscape() {
+  if (!cyContainerRef.value) return;
+
+  // Destroy previous instance cleanly
+  if (cy.value) {
+    cy.value.destroy();
+    cy.value = null;
+  }
+
+  const elements = buildElements();
+
+  const instance = cytoscape({
+    container: cyContainerRef.value,
+    elements,
+    style: cytoscapeStylesheet,
+    layout: {
+      name: 'dagre',
+      rankDir: 'TB',
+      nodeSep: 60,
+      rankSep: 75,
+      animate: false
+    } as any,
+    zoom: 1,
+    minZoom: 0.25,
+    maxZoom: 3.0,
+    wheelSensitivity: 0.22, // Smooth, natural cursor-anchored wheel zooming
+    boxSelectionEnabled: false,
+    autounselectify: false
+  });
+
+  // Fit graph cleanly with margin
+  instance.fit(undefined, 50);
+
+  // Click on Device Node -> Emit Inspect Event
+  instance.on('tap', 'node', (evt) => {
+    const node = evt.target as NodeSingular;
+    const deviceId = node.data('deviceId');
+    if (deviceId && Number(deviceId) > 0) {
+      emit('inspect', Number(deviceId));
+    }
+  });
+
+  // Hover over Node -> Show Tactical Floating Tooltip
+  instance.on('mouseover', 'node', (evt) => {
+    const node = evt.target as NodeSingular;
+    const pos = node.renderedPosition();
+    const data = node.data();
+
+    // Do not show full telemetry card on synthetic fallback
+    if (data.id === 'gateway_fallback') return;
+
+    hoveredNode.value = {
+      deviceId: data.deviceId,
+      displayName: data.label,
+      ip: data.ip,
+      mac: data.mac,
+      typeName: data.typeName || 'Network Node',
+      groupName: data.groupName,
+      status: data.status || 'UNKNOWN',
+      isMaintenance: !!data.isMaintenance,
+      latencyUs: data.latencyUs,
+      lossPct: data.lossPct,
+      x: pos.x,
+      y: pos.y
+    };
+  });
+
+  instance.on('mouseout', 'node', () => {
+    hoveredNode.value = null;
+  });
+
+  // Tap Background -> Close Hover Card
+  instance.on('tap', (evt) => {
+    if (evt.target === instance) {
+      hoveredNode.value = null;
+    }
+  });
+
+  cy.value = instance;
+}
+
+// Re-render graph when devices, groups or layout mode change
+function refreshGraph() {
+  if (!cy.value) {
+    initCytoscape();
+    return;
+  }
+
+  const elements = buildElements();
+  cy.value.elements().remove();
+  cy.value.add(elements);
+
+  const layout = cy.value.layout({
+    name: 'dagre',
+    rankDir: 'TB',
+    nodeSep: layoutMode.value === 'ROUTER_GROUPS_PCS' ? 55 : 65,
+    rankSep: 75,
+    animate: true,
+    animationDuration: 300
+  } as any);
+
+  layout.run();
+  cy.value.fit(undefined, 50);
+}
+
+// ---------------------------------------------------------------------------
+// Canvas Controls (Zoom In, Zoom Out, Reset Fit)
+// ---------------------------------------------------------------------------
+function zoomIn() {
+  if (!cy.value || !cyContainerRef.value) return;
+  const currentZoom = cy.value.zoom();
+  const rect = cyContainerRef.value.getBoundingClientRect();
+  cy.value.zoom({
+    level: Math.min(3.0, currentZoom * 1.25),
+    renderedPosition: { x: rect.width / 2, y: rect.height / 2 }
+  });
+}
+
+function zoomOut() {
+  if (!cy.value || !cyContainerRef.value) return;
+  const currentZoom = cy.value.zoom();
+  const rect = cyContainerRef.value.getBoundingClientRect();
+  cy.value.zoom({
+    level: Math.max(0.25, currentZoom * 0.8),
+    renderedPosition: { x: rect.width / 2, y: rect.height / 2 }
+  });
+}
+
+function resetFit() {
+  if (!cy.value) return;
+  cy.value.fit(undefined, 50);
+}
+
+// Watchers
+watch(layoutMode, () => {
+  refreshGraph();
+});
+
+watch(() => devicesStore.devices, () => {
+  refreshGraph();
+}, { deep: true });
+
+onMounted(async () => {
+  if (!groupsStore.groupsTree || groupsStore.groupsTree.length === 0) {
+    await groupsStore.fetchGroups();
+  }
+  initCytoscape();
+});
+
+onBeforeUnmount(() => {
+  if (cy.value) {
+    cy.value.destroy();
+    cy.value = null;
+  }
+});
 </script>
 
 <template>
-  <div class="h-full flex flex-col relative select-none overflow-hidden bg-zinc-950 bg-tactical-grid rounded-xl border border-zinc-800 shadow-sm">
+  <div class="flex-1 flex flex-col h-full bg-zinc-950 relative overflow-hidden select-none">
     
-    <!-- Top Canvas Header: Layout Mode Selector & Reachability Legend -->
-    <div class="absolute top-4 left-4 z-20 flex flex-wrap items-center gap-3 bg-zinc-900/90 border border-zinc-800 backdrop-blur-md px-3 py-1.5 rounded-lg text-xs font-sans shadow-md">
+    <!-- Cyber-Tactical Canvas HUD Top Bar -->
+    <div class="h-12 border-b border-zinc-800 bg-zinc-900/80 px-4 flex items-center justify-between flex-shrink-0 z-20 backdrop-blur">
       
-      <!-- Layout Switcher Segmented Control -->
-      <div class="flex items-center p-0.5 bg-zinc-950/80 border border-zinc-800 rounded-md">
-        <button 
-          @click="layoutMode = 'ROUTER_GROUPS_PCS'"
-          class="flex items-center gap-1.5 px-3 py-1 rounded text-xs font-medium transition"
-          :class="layoutMode === 'ROUTER_GROUPS_PCS' 
-            ? 'bg-zinc-800 text-zinc-100 shadow-sm border border-zinc-700/60' 
-            : 'text-zinc-400 hover:text-zinc-200'"
-          title="Tree by Core Router -> Aggregate Router -> Computer Lab Groups -> PCs"
-        >
-          <Layers class="w-3.5 h-3.5 text-amber-400" />
-          <span>Core → Agg → Groups → PCs</span>
-        </button>
-
-        <button 
-          @click="layoutMode = 'DEVICE_TO_DEVICE'"
-          class="flex items-center gap-1.5 px-3 py-1 rounded text-xs font-medium transition"
-          :class="layoutMode === 'DEVICE_TO_DEVICE' 
-            ? 'bg-zinc-800 text-zinc-100 shadow-sm border border-zinc-700/60' 
-            : 'text-zinc-400 hover:text-zinc-200'"
-          title="Tree by Device-to-Device Interconnects"
-        >
-          <GitFork class="w-3.5 h-3.5 text-emerald-400" />
-          <span>Device to Device</span>
-        </button>
-      </div>
-
-      <!-- Divider -->
-      <div class="h-4 w-px bg-zinc-800"></div>
-
-      <!-- Reachability Legend -->
-      <div class="flex items-center gap-3 text-xs text-zinc-400 font-sans">
-        <span class="flex items-center gap-1.5">
-          <span class="w-2 h-2 rounded-full bg-emerald-400"></span> Reachable
-        </span>
-        <span class="flex items-center gap-1.5">
-          <span class="w-2 h-2 rounded-full bg-rose-500"></span> Unreachable
-        </span>
-        <span class="flex items-center gap-1.5">
-          <span class="w-2 h-2 rounded-full bg-purple-400"></span> Maint
-        </span>
-      </div>
-    </div>
-
-    <!-- Zoom & Pan Toolbar -->
-    <div class="absolute bottom-4 right-4 z-20 flex items-center gap-1 bg-zinc-900/90 border border-zinc-800 backdrop-blur-md p-1 rounded-lg text-xs shadow-lg">
-      <button 
-        @click="zoomIn"
-        class="p-1.5 rounded hover:bg-zinc-800 text-zinc-300 hover:text-zinc-100 transition"
-        title="Zoom In"
-      >
-        <ZoomIn class="w-4 h-4" />
-      </button>
-
-      <button 
-        @click="zoomOut"
-        class="p-1.5 rounded hover:bg-zinc-800 text-zinc-300 hover:text-zinc-100 transition"
-        title="Zoom Out"
-      >
-        <ZoomOut class="w-4 h-4" />
-      </button>
-
-      <div class="px-2 text-[11px] text-zinc-400 font-mono">
-        {{ Math.round(scale * 100) }}%
-      </div>
-
-      <button 
-        @click="resetView"
-        class="p-1.5 rounded hover:bg-zinc-800 text-zinc-300 hover:text-zinc-100 transition"
-        title="Reset Fit"
-      >
-        <RotateCcw class="w-4 h-4" />
-      </button>
-    </div>
-
-    <!-- Pan/Zoom Infinite Canvas Container -->
-    <div 
-      ref="canvasContainerRef"
-      class="flex-1 w-full h-full cursor-grab active:cursor-grabbing overflow-hidden relative"
-      @mousedown="handleMouseDown"
-      @mousemove="handleMouseMove"
-      @mouseup="handleMouseUp"
-      @mouseleave="handleMouseUp"
-      @wheel="handleWheel"
-    >
-      <div 
-        class="min-w-full min-h-full origin-top-left will-change-transform select-none"
-        :style="{
-          transform: `translate(${panX}px, ${panY}px) scale(${scale})`
-        }"
-      >
-        
-        <!-- ================================================================= -->
-        <!-- MODE 1: CORE ROUTER -> AGGREGATE ROUTER -> GROUPS -> PCS BELOW    -->
-        <!-- ================================================================= -->
-        <div v-if="layoutMode === 'ROUTER_GROUPS_PCS'" class="p-10 inline-flex flex-col items-center min-w-full">
-          
-          <!-- Layer 0: Core Router(s) -->
-          <div class="flex flex-col items-center">
-            <div class="text-[11px] font-medium text-zinc-400 uppercase tracking-wider mb-3 flex items-center gap-2 font-mono">
-              <span class="w-3 h-px bg-zinc-700"></span>
-              <span>1. Core Gateway</span>
-              <span class="w-3 h-px bg-zinc-700"></span>
-            </div>
-
-            <div class="flex items-center space-x-12">
-              <div 
-                v-for="router in coreRouters"
-                :key="router.device_id"
-                class="relative group cursor-pointer flex flex-col items-center"
-                @click.stop="router.device_id && router.device_id > 0 && emit('inspect', router.device_id)"
-              >
-                <!-- Icon Box -->
-                <div 
-                  class="w-14 h-14 p-3 rounded-2xl flex items-center justify-center border-2 transition-all duration-200 group-hover:scale-110 shadow-lg relative backdrop-blur-sm"
-                  :class="[
-                    getNodeStatusColor(router.reachability_status, router.is_in_maintenance).border,
-                    getNodeStatusColor(router.reachability_status, router.is_in_maintenance).bg,
-                    getNodeStatusColor(router.reachability_status, router.is_in_maintenance).glow
-                  ]"
-                >
-                  <Router 
-                    class="w-7 h-7 transition-colors"
-                    :class="getNodeStatusColor(router.reachability_status, router.is_in_maintenance).icon"
-                  />
-                  <span 
-                    class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border border-zinc-950"
-                    :class="getNodeStatusColor(router.reachability_status, router.is_in_maintenance).dot"
-                  ></span>
-                </div>
-
-                <!-- ONLY Device Name on Canvas -->
-                <span class="text-xs font-medium text-zinc-200 group-hover:text-zinc-100 truncate max-w-[140px] text-center mt-2 transition tracking-tight">
-                  {{ router.display_name }}
-                </span>
-
-                <!-- Hover Card (shows IP & Status Badge) -->
-                <div 
-                  class="opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-150 absolute bottom-full mb-2 z-50 w-48 p-2.5 rounded-lg bg-zinc-900 border border-zinc-700 shadow-2xl backdrop-blur-md text-left font-sans"
-                >
-                  <div class="flex items-center justify-between gap-1 pb-1.5 border-b border-zinc-800">
-                    <span class="font-semibold text-xs text-zinc-100 truncate">{{ router.display_name }}</span>
-                    <span 
-                      class="px-1.5 py-0.5 rounded text-[10px] font-semibold border font-mono"
-                      :class="getNodeStatusColor(router.reachability_status, router.is_in_maintenance).badgeClass"
-                    >
-                      {{ getNodeStatusColor(router.reachability_status, router.is_in_maintenance).badgeText }}
-                    </span>
-                  </div>
-
-                  <div class="pt-1.5 space-y-1 text-[11px]">
-                    <div class="flex items-center justify-between">
-                      <span class="text-zinc-400">IP</span>
-                      <span class="font-mono text-zinc-200 font-medium">{{ router.primary_ip }}</span>
-                    </div>
-                    <div class="flex items-center justify-between">
-                      <span class="text-zinc-400">Type</span>
-                      <span class="text-zinc-300">Core Router</span>
-                    </div>
-                    <div v-if="router.zone" class="flex items-center justify-between">
-                      <span class="text-zinc-400">Zone</span>
-                      <span class="text-zinc-300 truncate max-w-[90px]">{{ router.zone }}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Fallback if no core router -->
-              <div 
-                v-if="coreRouters.length === 0"
-                class="px-4 py-2 rounded-lg border border-dashed border-zinc-800 text-center"
-              >
-                <span class="text-xs text-zinc-400">No Core Router provisioned</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Trunk Cable: Core Router to Aggregate Router -->
-          <div class="flex flex-col items-center my-3">
-            <div class="w-0.5 h-6 bg-zinc-700"></div>
-            <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.4)]"></div>
-            <div class="w-0.5 h-6 bg-zinc-700"></div>
-          </div>
-
-          <!-- Layer 1: Aggregate / Distribution Router(s) -->
-          <div class="flex flex-col items-center">
-            <div class="text-[11px] font-medium text-zinc-400 uppercase tracking-wider mb-3 flex items-center gap-2 font-mono">
-              <span class="w-3 h-px bg-zinc-700"></span>
-              <span>2. Aggregate / Distribution Switch</span>
-              <span class="w-3 h-px bg-zinc-700"></span>
-            </div>
-
-            <div class="flex items-center space-x-12">
-              <div 
-                v-for="sw in aggSwitches"
-                :key="sw.device_id"
-                class="relative group cursor-pointer flex flex-col items-center"
-                @click.stop="sw.device_id && sw.device_id > 0 && emit('inspect', sw.device_id)"
-              >
-                <!-- Switch Icon (ArrowLeftRight) -->
-                <div 
-                  class="w-13 h-13 p-3 rounded-xl flex items-center justify-center border-2 transition-all duration-200 group-hover:scale-110 shadow-lg relative backdrop-blur-sm"
-                  :class="[
-                    getNodeStatusColor(sw.reachability_status, sw.is_in_maintenance).border,
-                    getNodeStatusColor(sw.reachability_status, sw.is_in_maintenance).bg,
-                    getNodeStatusColor(sw.reachability_status, sw.is_in_maintenance).glow
-                  ]"
-                >
-                  <ArrowLeftRight 
-                    class="w-6 h-6 transition-colors"
-                    :class="getNodeStatusColor(sw.reachability_status, sw.is_in_maintenance).icon"
-                  />
-                  <span 
-                    class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border border-zinc-950"
-                    :class="getNodeStatusColor(sw.reachability_status, sw.is_in_maintenance).dot"
-                  ></span>
-                </div>
-
-                <!-- ONLY Device Name on Canvas -->
-                <span class="text-xs font-medium text-zinc-200 group-hover:text-zinc-100 truncate max-w-[130px] text-center mt-2 transition tracking-tight">
-                  {{ sw.display_name }}
-                </span>
-
-                <!-- Hover Card (shows IP & Status Badge) -->
-                <div 
-                  class="opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-150 absolute bottom-full mb-2 z-50 w-48 p-2.5 rounded-lg bg-zinc-900 border border-zinc-700 shadow-2xl backdrop-blur-md text-left font-sans"
-                >
-                  <div class="flex items-center justify-between gap-1 pb-1.5 border-b border-zinc-800">
-                    <span class="font-semibold text-xs text-zinc-100 truncate">{{ sw.display_name }}</span>
-                    <span 
-                      class="px-1.5 py-0.5 rounded text-[10px] font-semibold border font-mono"
-                      :class="getNodeStatusColor(sw.reachability_status, sw.is_in_maintenance).badgeClass"
-                    >
-                      {{ getNodeStatusColor(sw.reachability_status, sw.is_in_maintenance).badgeText }}
-                    </span>
-                  </div>
-
-                  <div class="pt-1.5 space-y-1 text-[11px]">
-                    <div class="flex items-center justify-between">
-                      <span class="text-zinc-400">IP</span>
-                      <span class="font-mono text-zinc-200 font-medium">{{ sw.primary_ip }}</span>
-                    </div>
-                    <div class="flex items-center justify-between">
-                      <span class="text-zinc-400">Type</span>
-                      <span class="text-zinc-300">Distribution Switch</span>
-                    </div>
-                    <div v-if="sw.zone" class="flex items-center justify-between">
-                      <span class="text-zinc-400">Rack</span>
-                      <span class="text-zinc-300 truncate max-w-[90px]">{{ sw.zone }}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Fallback if no agg switch -->
-              <div 
-                v-if="aggSwitches.length === 0"
-                class="px-4 py-2 rounded-lg border border-dashed border-zinc-800 text-center"
-              >
-                <span class="text-xs text-zinc-400">Direct Gateway Trunk (No Agg switch provisioned)</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Trunk Cable: Aggregate Switch down to Groups Bus Rail -->
-          <div class="flex flex-col items-center w-full my-3">
-            <div class="w-0.5 h-6 bg-zinc-700"></div>
-            <!-- Horizontal Bus Line Connecting All Groups -->
-            <div class="w-5/6 h-0.5 bg-zinc-700 rounded-full"></div>
-          </div>
-
-          <!-- Layer 2 & 3: Groups and their PCs directly below -->
-          <div class="flex flex-col items-center w-full">
-            <div class="text-[11px] font-medium text-zinc-400 uppercase tracking-wider mb-4 flex items-center gap-2 font-mono">
-              <span class="w-3 h-px bg-zinc-700"></span>
-              <span>3. Computer Lab Groups &amp; Connected PCs</span>
-              <span class="w-3 h-px bg-zinc-700"></span>
-            </div>
-
-            <!-- Groups Row Container -->
-            <div class="flex items-start justify-center flex-wrap gap-12 w-full pt-1">
-              
-              <div 
-                v-for="group in flatGroups"
-                :key="group.group_id"
-                class="flex flex-col items-center"
-              >
-                <!-- Vertical Drop from Trunk Bus into Group Card -->
-                <div class="w-0.5 h-5 bg-zinc-700 -mt-5 mb-2"></div>
-
-                <!-- Group Station Card (Shadcn style) -->
-                <div class="px-3.5 py-2 rounded-xl bg-zinc-900 border border-zinc-700/80 shadow-md backdrop-blur flex items-center gap-2.5 hover:border-amber-500/50 transition">
-                  <div class="w-7 h-7 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 flex-shrink-0">
-                    <Layers class="w-3.5 h-3.5" />
-                  </div>
-                  <div>
-                    <div class="text-xs font-semibold text-zinc-100 tracking-tight">{{ group.group_name }}</div>
-                    <div class="flex items-center gap-2 text-[10px] text-zinc-400 mt-0.5 font-mono">
-                      <span>{{ getGroupStats(group.group_id).total }} PCs</span>
-                      <span v-if="getGroupStats(group.group_id).online > 0" class="text-emerald-400 flex items-center gap-1 font-medium">
-                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>{{ getGroupStats(group.group_id).online }} Online
-                      </span>
-                      <span v-if="getGroupStats(group.group_id).offline > 0" class="text-rose-400 flex items-center gap-1 font-medium">
-                        <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>{{ getGroupStats(group.group_id).offline }} Offline
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Downlink Cable from Group down to its PCs -->
-                <div class="w-0.5 h-6 bg-zinc-700 mt-2"></div>
-
-                <!-- Horizontal branch rail if multiple PCs -->
-                <div 
-                  v-if="getDevicesForGroup(group.group_id).length > 1"
-                  class="h-0.5 bg-zinc-700 rounded-full mb-3"
-                  :style="{ width: `${Math.min(320, Math.max(80, getDevicesForGroup(group.group_id).length * 60))}px` }"
-                ></div>
-
-                <!-- PCs and Endpoints belonging to this Lab Group -->
-                <div class="flex flex-wrap items-start justify-center gap-5 max-w-md pt-1">
-                  
-                  <div 
-                    v-for="pc in getDevicesForGroup(group.group_id)"
-                    :key="pc.device_id"
-                    class="relative group cursor-pointer flex flex-col items-center"
-                    @click.stop="pc.device_id && pc.device_id > 0 && emit('inspect', pc.device_id)"
-                  >
-                    <!-- PC Drop Cable -->
-                    <div class="w-0.5 h-2 bg-zinc-700 -mt-3 mb-1"></div>
-
-                    <!-- PC Icon Box -->
-                    <div 
-                      class="w-10 h-10 rounded-xl flex items-center justify-center border-2 transition-all duration-200 group-hover:scale-110 shadow-md relative backdrop-blur-sm"
-                      :class="[
-                        getNodeStatusColor(pc.reachability_status, pc.is_in_maintenance).border,
-                        getNodeStatusColor(pc.reachability_status, pc.is_in_maintenance).bg,
-                        getNodeStatusColor(pc.reachability_status, pc.is_in_maintenance).glow
-                      ]"
-                    >
-                      <component 
-                        :is="getDeviceIcon(pc.type_id)" 
-                        class="w-5 h-5 transition-colors"
-                        :class="getNodeStatusColor(pc.reachability_status, pc.is_in_maintenance).icon"
-                      />
-                      <span 
-                        class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border border-zinc-950"
-                        :class="getNodeStatusColor(pc.reachability_status, pc.is_in_maintenance).dot"
-                      ></span>
-                    </div>
-
-                    <!-- ONLY Device Name on Canvas -->
-                    <span class="text-[10px] font-medium text-zinc-300 group-hover:text-zinc-100 truncate max-w-[85px] text-center mt-1.5 transition tracking-tight">
-                      {{ pc.display_name }}
-                    </span>
-
-                    <!-- Hover Card (shows IP & Status Badge) -->
-                    <div 
-                      class="opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-150 absolute bottom-full mb-2 z-50 w-48 p-2.5 rounded-lg bg-zinc-900 border border-zinc-700 shadow-2xl backdrop-blur-md text-left font-sans"
-                    >
-                      <div class="flex items-center justify-between gap-1 pb-1.5 border-b border-zinc-800">
-                        <span class="font-semibold text-xs text-zinc-100 truncate">{{ pc.display_name }}</span>
-                        <span 
-                          class="px-1.5 py-0.5 rounded text-[10px] font-semibold border font-mono"
-                          :class="getNodeStatusColor(pc.reachability_status, pc.is_in_maintenance).badgeClass"
-                        >
-                          {{ getNodeStatusColor(pc.reachability_status, pc.is_in_maintenance).badgeText }}
-                        </span>
-                      </div>
-
-                      <div class="pt-1.5 space-y-1 text-[11px]">
-                        <div class="flex items-center justify-between">
-                          <span class="text-zinc-400">IP</span>
-                          <span class="font-mono text-zinc-200 font-medium">{{ pc.primary_ip }}</span>
-                        </div>
-                        <div class="flex items-center justify-between">
-                          <span class="text-zinc-400">Type</span>
-                          <span class="text-zinc-300">{{ getDeviceTypeName(pc.type_id) }}</span>
-                        </div>
-                        <div v-if="pc.latest_latency_us !== null && pc.latest_latency_us !== undefined" class="flex items-center justify-between">
-                          <span class="text-zinc-400">RTT</span>
-                          <span class="font-mono text-emerald-400 font-medium">
-                            {{ pc.latest_latency_us < 1000 ? `${pc.latest_latency_us}µs` : `${(pc.latest_latency_us/1000).toFixed(1)}ms` }}
-                          </span>
-                        </div>
-                        <div v-else class="flex items-center justify-between">
-                          <span class="text-zinc-400">RTT</span>
-                          <span class="font-mono text-zinc-500 italic">N/A</span>
-                        </div>
-                        <div class="flex items-center justify-between">
-                          <span class="text-zinc-400">Lab</span>
-                          <span class="text-zinc-300 truncate max-w-[90px]">{{ group.group_name }}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- Empty state for groups without PCs -->
-                  <div 
-                    v-if="getDevicesForGroup(group.group_id).length === 0"
-                    class="py-2 px-3 rounded border border-dashed border-zinc-800 text-center"
-                  >
-                    <span class="text-[10px] text-zinc-400 italic">No PCs configured in this lab</span>
-                  </div>
-
-                </div>
-
-              </div>
-
-            </div>
-          </div>
-
+      <!-- Left: Title & Mode Switcher -->
+      <div class="flex items-center space-x-4">
+        <div class="flex items-center space-x-2">
+          <Network class="w-4 h-4 text-emerald-400" />
+          <span class="text-xs font-bold text-zinc-100 tracking-wider font-mono">TOPOLOGY CANVAS</span>
+          <span class="text-[10px] text-zinc-400 font-mono hidden sm:inline">(Cytoscape.js Engine)</span>
         </div>
 
-        <!-- ================================================================= -->
-        <!-- MODE 2: PURE DEVICE-TO-DEVICE HIERARCHY (NO TITLES, DIRECT LINKS)  -->
-        <!-- ================================================================= -->
-        <div v-else class="p-10 inline-flex flex-col items-center min-w-full">
-          
-          <!-- Root Devices with Direct Recursive Physical Interconnects -->
-          <div class="flex items-start justify-center gap-16">
-            <TopologyDeviceTreeNode 
-              v-for="rootDev in rootDevices"
-              :key="rootDev.device_id"
-              :device="rootDev"
-              @inspect="(id) => id && id > 0 && emit('inspect', id)"
-            />
-          </div>
+        <div class="h-4 w-px bg-zinc-800"></div>
 
-          <!-- Fallback if no devices at all -->
-          <div 
-            v-if="allDevices.length === 0"
-            class="p-6 rounded-lg border border-dashed border-zinc-800 text-center max-w-md"
+        <!-- Mode Toggle Segmented Pill -->
+        <div class="flex items-center bg-zinc-950 p-0.5 rounded-lg border border-zinc-800">
+          <button 
+            type="button"
+            @click="layoutMode = 'ROUTER_GROUPS_PCS'"
+            class="px-2.5 py-1 rounded-md text-[11px] font-medium transition flex items-center gap-1.5"
+            :class="layoutMode === 'ROUTER_GROUPS_PCS' 
+              ? 'bg-emerald-600 text-white shadow-sm font-semibold' 
+              : 'text-zinc-400 hover:text-zinc-200'"
+            title="Gateway -> Aggregate Switch -> Computer Labs -> Connected Workstations"
           >
-            <Network class="w-6 h-6 text-zinc-400 mx-auto mb-2" />
-            <p class="text-xs text-zinc-300 font-medium">No Devices Configured</p>
-            <p class="text-[11px] text-zinc-400 mt-0.5">Use the Device Inventory or Subnet Discovery tab to populate equipment.</p>
-          </div>
+            <Layers class="w-3.5 h-3.5" />
+            <span>Lab Hierarchy</span>
+          </button>
 
+          <button 
+            type="button"
+            @click="layoutMode = 'DEVICE_TO_DEVICE'"
+            class="px-2.5 py-1 rounded-md text-[11px] font-medium transition flex items-center gap-1.5"
+            :class="layoutMode === 'DEVICE_TO_DEVICE' 
+              ? 'bg-emerald-600 text-white shadow-sm font-semibold' 
+              : 'text-zinc-400 hover:text-zinc-200'"
+            title="Pure Device-to-Device Physical Interconnects without Group Headers"
+          >
+            <ArrowLeftRight class="w-3.5 h-3.5" />
+            <span>Device-to-Device</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Right: Legend & Zoom / Fit Controls -->
+      <div class="flex items-center space-x-3">
+        <!-- Status Indicator Pill -->
+        <div class="hidden lg:flex items-center space-x-3 text-[10px] font-mono text-zinc-400 pr-2 border-r border-zinc-800">
+          <div class="flex items-center space-x-1">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]"></span>
+            <span>Online</span>
+          </div>
+          <div class="flex items-center space-x-1">
+            <span class="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.5)]"></span>
+            <span>Offline</span>
+          </div>
+          <div class="flex items-center space-x-1">
+            <span class="w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.5)]"></span>
+            <span>Maintenance</span>
+          </div>
         </div>
 
+        <!-- Zoom & Fit Controls -->
+        <div class="flex items-center space-x-1 bg-zinc-950 p-0.5 rounded-lg border border-zinc-800">
+          <button 
+            type="button"
+            @click="zoomIn"
+            class="p-1.5 rounded text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition"
+            title="Zoom In (+)"
+          >
+            <ZoomIn class="w-3.5 h-3.5" />
+          </button>
+          <button 
+            type="button"
+            @click="zoomOut"
+            class="p-1.5 rounded text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition"
+            title="Zoom Out (-)"
+          >
+            <ZoomOut class="w-3.5 h-3.5" />
+          </button>
+          <button 
+            type="button"
+            @click="resetFit"
+            class="p-1.5 rounded text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition"
+            title="Fit Canvas to View"
+          >
+            <RotateCcw class="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
     </div>
+
+    <!-- Cytoscape Dedicated Canvas DOM Container -->
+    <div 
+      ref="cyContainerRef" 
+      class="flex-1 w-full h-full bg-[#080b14] relative cursor-grab active:cursor-grabbing outline-none"
+    ></div>
+
+    <!-- Floating Cyber-Tactical Tooltip / Hover Card -->
+    <div 
+      v-if="hoveredNode"
+      class="pointer-events-none absolute z-50 w-52 p-3 rounded-xl bg-zinc-900/95 border border-zinc-700 shadow-2xl backdrop-blur-md text-left font-sans -translate-x-1/2 -translate-y-full mb-3"
+      :style="{ left: `${hoveredNode.x}px`, top: `${hoveredNode.y - 12}px` }"
+    >
+      <div class="flex items-center justify-between gap-1 pb-1.5 border-b border-zinc-800">
+        <span class="font-semibold text-xs text-zinc-100 truncate">{{ hoveredNode.displayName }}</span>
+        <span 
+          v-if="hoveredNode.isMaintenance"
+          class="px-1.5 py-0.5 rounded text-[9px] font-semibold border bg-amber-950/70 border-amber-500/40 text-amber-300 font-mono"
+        >
+          MAINTENANCE
+        </span>
+        <span 
+          v-else-if="hoveredNode.status === 'REACHABLE'"
+          class="px-1.5 py-0.5 rounded text-[9px] font-semibold border bg-emerald-950/70 border-emerald-500/40 text-emerald-300 font-mono"
+        >
+          ONLINE
+        </span>
+        <span 
+          v-else-if="hoveredNode.status === 'UNREACHABLE'"
+          class="px-1.5 py-0.5 rounded text-[9px] font-semibold border bg-rose-950/70 border-rose-500/40 text-rose-300 font-mono"
+        >
+          OFFLINE
+        </span>
+        <span 
+          v-else
+          class="px-1.5 py-0.5 rounded text-[9px] font-semibold border bg-zinc-800 border-zinc-600 text-zinc-400 font-mono"
+        >
+          UNKNOWN
+        </span>
+      </div>
+
+      <div class="pt-2 space-y-1.5 text-[11px]">
+        <div class="flex items-center justify-between">
+          <span class="text-zinc-400">IP</span>
+          <span class="font-mono text-zinc-200 font-medium">{{ hoveredNode.ip }}</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-zinc-400">Type</span>
+          <span class="text-zinc-300">{{ hoveredNode.typeName }}</span>
+        </div>
+        <div v-if="hoveredNode.groupName" class="flex items-center justify-between">
+          <span class="text-zinc-400">Scope</span>
+          <span class="text-zinc-300 truncate max-w-[100px]">{{ hoveredNode.groupName }}</span>
+        </div>
+        <div v-if="hoveredNode.latencyUs !== null && hoveredNode.latencyUs !== undefined" class="flex items-center justify-between">
+          <span class="text-zinc-400">RTT</span>
+          <span class="font-mono text-emerald-400 font-medium">
+            {{ hoveredNode.latencyUs < 1000 ? `${hoveredNode.latencyUs} µs` : `${(hoveredNode.latencyUs / 1000).toFixed(1)} ms` }}
+          </span>
+        </div>
+        <div v-else class="flex items-center justify-between">
+          <span class="text-zinc-400">RTT</span>
+          <span class="font-mono text-zinc-500 italic">N/A</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Empty State Watermark if No Devices -->
+    <div 
+      v-if="allDevices.length === 0"
+      class="pointer-events-none absolute inset-0 flex items-center justify-center"
+    >
+      <div class="p-6 rounded-2xl bg-zinc-900/80 border border-zinc-800 text-center max-w-sm backdrop-blur">
+        <Network class="w-8 h-8 text-zinc-500 mx-auto mb-2" />
+        <h3 class="text-sm font-semibold text-zinc-200">No Equipment Discovered</h3>
+        <p class="text-xs text-zinc-400 mt-1">Use Subnet Discovery or Device Inventory to onboard infrastructure.</p>
+      </div>
+    </div>
+
   </div>
 </template>
