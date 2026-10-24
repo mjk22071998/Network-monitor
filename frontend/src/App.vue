@@ -136,6 +136,11 @@ watch(() => authStore.isAuthenticated, async (isAuth) => {
   }
 });
 
+// Automatically collapse device properties inspector panel when switching pages from sidebar
+watch(currentTab, () => {
+  devicesStore.clearSelectedDevice();
+});
+
 onMounted(async () => {
   await authStore.checkAuth();
   await checkApiHealth();
