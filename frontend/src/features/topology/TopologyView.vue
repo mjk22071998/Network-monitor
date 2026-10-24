@@ -37,6 +37,7 @@ onMounted(async () => {
 });
 
 // Pan and Zoom state
+const canvasContainerRef = ref<HTMLDivElement | null>(null);
 const scale = ref<number>(1);
 const panX = ref<number>(50);
 const panY = ref<number>(30);
@@ -53,27 +54,61 @@ function handleMouseDown(e: MouseEvent) {
 
 function handleMouseMove(e: MouseEvent) {
   if (!isDragging.value) return;
-  panX.value = e.clientX - startMouseX.value;
-  panY.value = e.clientY - startMouseY.value;
+  panX.value = Math.round(e.clientX - startMouseX.value);
+  panY.value = Math.round(e.clientY - startMouseY.value);
 }
 
 function handleMouseUp() {
   isDragging.value = false;
 }
 
+// Zoom centered precisely at a target coordinate (e.g. mouse cursor or screen center)
+function zoomAtPoint(targetX: number, targetY: number, deltaScale: number) {
+  const oldScale = scale.value;
+  const newScale = Math.min(3.0, Math.max(0.3, Number((oldScale + deltaScale).toFixed(3))));
+  if (newScale === oldScale) return;
+
+  // Find canvas-space coordinate currently under (targetX, targetY)
+  const worldX = (targetX - panX.value) / oldScale;
+  const worldY = (targetY - panY.value) / oldScale;
+
+  // Adjust pan so the canvas coordinate remains pinned under (targetX, targetY)
+  panX.value = Math.round(targetX - worldX * newScale);
+  panY.value = Math.round(targetY - worldY * newScale);
+  scale.value = newScale;
+}
+
 function handleWheel(e: WheelEvent) {
   e.preventDefault();
-  const delta = e.deltaY < 0 ? 0.1 : -0.1;
-  const newScale = Math.min(2.5, Math.max(0.4, scale.value + delta));
-  scale.value = Number(newScale.toFixed(2));
+  if (!canvasContainerRef.value) return;
+
+  const rect = canvasContainerRef.value.getBoundingClientRect();
+  const mouseX = e.clientX - rect.left;
+  const mouseY = e.clientY - rect.top;
+
+  // Natural cursor-anchored zoom: 12% per wheel notch
+  const zoomFactor = e.deltaY < 0 ? 0.12 : -0.12;
+  const deltaScale = scale.value * zoomFactor;
+
+  zoomAtPoint(mouseX, mouseY, deltaScale);
 }
 
 function zoomIn() {
-  scale.value = Math.min(2.5, Number((scale.value + 0.15).toFixed(2)));
+  if (!canvasContainerRef.value) {
+    scale.value = Math.min(3.0, Number((scale.value + 0.15).toFixed(2)));
+    return;
+  }
+  const rect = canvasContainerRef.value.getBoundingClientRect();
+  zoomAtPoint(rect.width / 2, rect.height / 2, scale.value * 0.15);
 }
 
 function zoomOut() {
-  scale.value = Math.max(0.4, Number((scale.value - 0.15).toFixed(2)));
+  if (!canvasContainerRef.value) {
+    scale.value = Math.max(0.3, Number((scale.value - 0.15).toFixed(2)));
+    return;
+  }
+  const rect = canvasContainerRef.value.getBoundingClientRect();
+  zoomAtPoint(rect.width / 2, rect.height / 2, -scale.value * 0.15);
 }
 
 function resetView() {
@@ -361,7 +396,8 @@ function getNodeStatusColor(status?: string | null, isMaint?: boolean) {
 
     <!-- Pan/Zoom Infinite Canvas Container -->
     <div 
-      class="flex-1 w-full h-full cursor-grab active:cursor-grabbing overflow-hidden"
+      ref="canvasContainerRef"
+      class="flex-1 w-full h-full cursor-grab active:cursor-grabbing overflow-hidden relative"
       @mousedown="handleMouseDown"
       @mousemove="handleMouseMove"
       @mouseup="handleMouseUp"
@@ -369,7 +405,7 @@ function getNodeStatusColor(status?: string | null, isMaint?: boolean) {
       @wheel="handleWheel"
     >
       <div 
-        class="min-w-full min-h-full transition-transform duration-75 origin-top-left"
+        class="min-w-full min-h-full origin-top-left will-change-transform select-none"
         :style="{
           transform: `translate(${panX}px, ${panY}px) scale(${scale})`
         }"
