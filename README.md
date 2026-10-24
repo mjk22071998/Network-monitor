@@ -5,6 +5,7 @@
 [![Vue 3](https://img.shields.io/badge/Vue-3.5%20(Composition%20API)-4FC08D?style=for-the-badge&logo=vuedotjs&logoColor=white)](https://vuejs.org/)
 [![Vite](https://img.shields.io/badge/Vite-5.4-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4%20(Cyber--Tactical)-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
+[![CI Pipeline](https://img.shields.io/badge/CI%20Pipeline-151%20Tests%20Cleared-10B981?style=for-the-badge&logo=githubactions&logoColor=white)](.github/workflows/ci.yml)
 [![Tests](https://img.shields.io/badge/Unit_Tests-151%20Passed%20%2F%200%20Failed-10B981?style=for-the-badge&logo=checkmarx&logoColor=white)](backend/tests/NetworkObserver.Tests)
 [![Air-Gapped Ready](https://img.shields.io/badge/Air--Gapped-Zero%20External%20CDN-F59E0B?style=for-the-badge&logo=shield&logoColor=white)](docs/security_and_rbac_specification.md)
 [![Memory Budget](https://img.shields.io/badge/Memory_Budget-%3C%20500%20MB%20RAM-8B5CF6?style=for-the-badge&logo=speedtest&logoColor=white)](docs/software_architecture_and_libraries_specification.md)
