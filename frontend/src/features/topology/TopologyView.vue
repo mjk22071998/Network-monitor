@@ -39,6 +39,9 @@ const cyContainerRef = ref<HTMLDivElement | null>(null);
 // Cytoscape Core instance (shallowRef to adhere to strict 500MB memory allowance)
 const cy = shallowRef<Core | null>(null);
 
+// Track topology structural fingerprint to avoid re-running full layout during live telemetry polls
+const lastTopologyFingerprint = ref<string>('');
+
 // Hover Card / Tooltip State
 interface HoveredNodeData {
   deviceId?: number;
@@ -131,6 +134,85 @@ function getDevicesForGroup(groupId: number): Device[] {
 }
 
 // ---------------------------------------------------------------------------
+// SVG Icon Generator Functions (Lucide-based with Designated Colors)
+// ---------------------------------------------------------------------------
+function getStatusColor(status?: string, isMaintenance?: boolean): string {
+  if (isMaintenance) return '#f59e0b'; // Amber
+  if (status === 'REACHABLE' || status === 'ONLINE') return '#10b981'; // Emerald
+  if (status === 'UNREACHABLE' || status === 'OFFLINE' || status === 'SUPPRESSED') return '#f43f5e'; // Rose
+  return '#94a3b8'; // Slate
+}
+
+function svgToDataUri(svg: string): string {
+  return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg.trim());
+}
+
+// Core Router (Lucide Router)
+function getRouterSvg(color: string): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <rect width="20" height="8" x="2" y="14" rx="2" />
+    <path d="M6.01 18H6" />
+    <path d="M10.01 18H10" />
+    <path d="M15 10v4" />
+    <path d="M17.84 7.17a4 4 0 0 0-5.66 0" />
+    <path d="M20.66 4.34a8 8 0 0 0-11.31 0" />
+  </svg>`;
+}
+
+// Switch (Lucide ArrowLeftRight)
+function getSwitchSvg(color: string): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M8 3 4 7l4 4" />
+    <path d="M4 7h16" />
+    <path d="m16 21 4-4-4-4" />
+    <path d="M20 17H4" />
+  </svg>`;
+}
+
+// Server (Lucide Server)
+function getServerSvg(color: string): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <rect width="20" height="8" x="2" y="2" rx="2" ry="2" />
+    <rect width="20" height="8" x="2" y="14" rx="2" ry="2" />
+    <line x1="6" x2="6.01" y1="6" y2="6" />
+    <line x1="6" x2="6.01" y1="18" y2="18" />
+  </svg>`;
+}
+
+// Workstation PC (Lucide Monitor)
+function getPcSvg(color: string): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <rect width="20" height="14" x="2" y="3" rx="2" />
+    <line x1="8" x2="16" y1="21" y2="21" />
+    <line x1="12" x2="12" y1="17" y2="21" />
+  </svg>`;
+}
+
+// Computer Lab Group Node (Exact User-Requested Quad-Squares SVG)
+function getGroupSvg(color: string): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="46" height="46" fill="none" viewBox="0 0 24 24" stroke="${color}" stroke-width="1.8">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+  </svg>`;
+}
+
+function getDeviceSvgDataUri(typeId: number, status?: string, isMaintenance?: boolean): string {
+  const color = getStatusColor(status, isMaintenance);
+  switch (typeId) {
+    case 1: return svgToDataUri(getRouterSvg(color));
+    case 2: return svgToDataUri(getSwitchSvg(color));
+    case 3: return svgToDataUri(getSwitchSvg(color));
+    case 4: return svgToDataUri(getServerSvg(color));
+    case 5: return svgToDataUri(getPcSvg(color));
+    default: return svgToDataUri(getPcSvg(color));
+  }
+}
+
+function getGroupSvgDataUri(status: string): string {
+  const color = getStatusColor(status, false);
+  return svgToDataUri(getGroupSvg(color));
+}
+
+// ---------------------------------------------------------------------------
 // Build Cytoscape Elements for Mode 1 & Mode 2
 // ---------------------------------------------------------------------------
 function buildElements(): ElementsDefinition {
@@ -154,6 +236,7 @@ function buildElements(): ElementsDefinition {
             deviceId: router.device_id,
             label: router.display_name,
             nodeType: 'core-router',
+            bgImage: getDeviceSvgDataUri(router.type_id, router.reachability_status, router.is_in_maintenance),
             ip: router.primary_ip,
             mac: router.mac_address,
             typeName: 'Core Router',
@@ -166,12 +249,12 @@ function buildElements(): ElementsDefinition {
         });
       }
     } else {
-      // Fallback synthetic gateway node if none provisioned yet
       nodes.push({
         data: {
           id: 'gateway_fallback',
-          label: 'Default Gateway (Unassigned)',
+          label: 'Default Gateway',
           nodeType: 'core-router',
+          bgImage: svgToDataUri(getRouterSvg('#94a3b8')),
           ip: '10.0.0.1',
           typeName: 'Core Gateway',
           status: 'UNKNOWN',
@@ -190,6 +273,7 @@ function buildElements(): ElementsDefinition {
             deviceId: sw.device_id,
             label: sw.display_name,
             nodeType: 'agg-switch',
+            bgImage: getDeviceSvgDataUri(sw.type_id, sw.reachability_status, sw.is_in_maintenance),
             ip: sw.primary_ip,
             mac: sw.mac_address,
             typeName: 'Aggregate Switch',
@@ -213,13 +297,12 @@ function buildElements(): ElementsDefinition {
       }
     }
 
-    // Determine upstream feed for groups: first agg switch or fallback to core router
+    // Determine upstream feed for groups
     const groupUplinkId = aggSwitches.length > 0 ? `d_${aggSwitches[0].device_id}` : primaryRouterId;
 
-    // 3. Computer Lab Groups
+    // 3. Computer Lab Groups (Using exact user quad-squares icon with text below)
     for (const group of flatGroups.value) {
       const pcs = getDevicesForGroup(group.group_id);
-      const onlineCount = pcs.filter(p => p.reachability_status === 'REACHABLE').length;
       const offlineCount = pcs.filter(p => p.reachability_status === 'UNREACHABLE').length;
 
       let groupStatus: 'REACHABLE' | 'UNREACHABLE' | 'UNKNOWN' = 'UNKNOWN';
@@ -231,12 +314,11 @@ function buildElements(): ElementsDefinition {
       nodes.push({
         data: {
           id: groupId,
-          label: `${group.group_name} (${pcs.length} PCs)`,
+          label: `${group.group_name}\n(${pcs.length} PCs)`,
           nodeType: 'group-node',
+          bgImage: getGroupSvgDataUri(groupStatus),
           groupName: group.group_name,
           pcCount: pcs.length,
-          onlineCount,
-          offlineCount,
           status: groupStatus,
           isMaintenance: false
         }
@@ -261,6 +343,7 @@ function buildElements(): ElementsDefinition {
             deviceId: pc.device_id,
             label: pc.display_name,
             nodeType: pc.type_id === 4 ? 'server' : 'workstation',
+            bgImage: getDeviceSvgDataUri(pc.type_id, pc.reachability_status, pc.is_in_maintenance),
             ip: pc.primary_ip,
             mac: pc.mac_address,
             typeName: getDeviceTypeName(pc.type_id),
@@ -303,6 +386,7 @@ function buildElements(): ElementsDefinition {
           deviceId: dev.device_id,
           label: dev.display_name,
           nodeType,
+          bgImage: getDeviceSvgDataUri(dev.type_id, dev.reachability_status, dev.is_in_maintenance),
           ip: dev.primary_ip,
           mac: dev.mac_address,
           typeName: getDeviceTypeName(dev.type_id),
@@ -332,10 +416,10 @@ function buildElements(): ElementsDefinition {
 }
 
 // ---------------------------------------------------------------------------
-// Cytoscape Cyber-Tactical Stylesheet
+// Cytoscape Cyber-Tactical Stylesheet (Background Opacity 0, Text Below Icon)
 // ---------------------------------------------------------------------------
 const cytoscapeStylesheet: any[] = [
-  // Global Node Base Styling
+  // Global Node Base Styling: Background Opacity 0, Text Strictly Below Icon
   {
     selector: 'node',
     style: {
@@ -346,140 +430,33 @@ const cytoscapeStylesheet: any[] = [
       'font-weight': 600,
       'text-valign': 'bottom',
       'text-halign': 'center',
-      'text-margin-y': 6,
-      'text-outline-color': '#090d16',
-      'text-outline-width': 3,
+      'text-margin-y': 7,
+      'text-wrap': 'wrap',
+      'text-max-width': '100px', // Wraps longer hostnames into 2 clean lines
+      'text-outline-color': '#080b14',
+      'text-outline-width': 2.5,
       'text-outline-opacity': 1,
-      'background-color': '#0f172a',
-      'border-width': 2,
-      'border-color': '#334155',
-      'transition-property': 'background-color, border-color, width, height',
-      'transition-duration': '0.18s'
+      // Icon-only rendering with transparent background
+      'background-image': 'data(bgImage)',
+      'background-fit': 'contain',
+      'background-clip': 'none',
+      'background-opacity': 0,
+      'border-width': 0,
+      'border-opacity': 0,
+      'shape': 'rectangle',
+      'width': 44,
+      'height': 44
     }
   },
 
-  // Node Shape Variations by Device Role
-  {
-    selector: 'node[nodeType = "core-router"]',
-    style: {
-      'shape': 'diamond',
-      'width': 50,
-      'height': 50
-    }
-  },
-  {
-    selector: 'node[nodeType = "agg-switch"]',
-    style: {
-      'shape': 'round-rectangle',
-      'corner-radius': 8,
-      'width': 46,
-      'height': 46
-    }
-  },
-  {
-    selector: 'node[nodeType = "access-switch"]',
-    style: {
-      'shape': 'round-rectangle',
-      'corner-radius': 6,
-      'width': 40,
-      'height': 40
-    }
-  },
-  {
-    selector: 'node[nodeType = "server"]',
-    style: {
-      'shape': 'barrel',
-      'width': 38,
-      'height': 38
-    }
-  },
-  {
-    selector: 'node[nodeType = "workstation"]',
-    style: {
-      'shape': 'ellipse',
-      'width': 34,
-      'height': 34
-    }
-  },
-
-  // Computer Lab Group Node (Mode 1)
-  {
-    selector: 'node[nodeType = "group-node"]',
-    style: {
-      'shape': 'round-rectangle',
-      'corner-radius': 10,
-      'width': 140,
-      'height': 34,
-      'background-color': '#18181b', // zinc-900
-      'border-color': '#d97706', // amber-600
-      'border-width': 2,
-      'text-valign': 'center',
-      'text-halign': 'center',
-      'text-margin-y': 0,
-      'color': '#fde68a', // amber-200
-      'font-size': '11px',
-      'font-weight': 700
-    }
-  },
-
-  // Reachability: REACHABLE (Online / Emerald Glow)
-  {
-    selector: 'node[status = "REACHABLE"]',
-    style: {
-      'background-color': '#064e3b', // emerald-950
-      'border-color': '#10b981', // emerald-500
-      'border-width': 2.5,
-      'underlay-color': '#10b981',
-      'underlay-padding': 4,
-      'underlay-opacity': 0.3
-    }
-  },
-
-  // Reachability: UNREACHABLE (Offline / Rose Red Glow)
-  {
-    selector: 'node[status = "UNREACHABLE"]',
-    style: {
-      'background-color': '#4c0519', // rose-950
-      'border-color': '#f43f5e', // rose-500
-      'border-width': 2.5,
-      'underlay-color': '#f43f5e',
-      'underlay-padding': 4,
-      'underlay-opacity': 0.35
-    }
-  },
-
-  // Maintenance Override: Amber Glow
-  {
-    selector: 'node[isMaintenance = true]',
-    style: {
-      'background-color': '#451a03', // amber-950
-      'border-color': '#f59e0b', // amber-500
-      'border-width': 2.5,
-      'underlay-color': '#f59e0b',
-      'underlay-padding': 4,
-      'underlay-opacity': 0.35
-    }
-  },
-
-  // Status: UNKNOWN (Slate)
-  {
-    selector: 'node[status = "UNKNOWN"]',
-    style: {
-      'background-color': '#1e293b',
-      'border-color': '#64748b',
-      'border-width': 2
-    }
-  },
-
-  // Active / Selected Node (Cyan Ring)
+  // Active / Selected Node (Cyan Glowing Halo under the icon)
   {
     selector: 'node:selected',
     style: {
-      'border-color': '#38bdf8', // sky-400
-      'border-width': 4,
       'underlay-color': '#38bdf8',
       'underlay-padding': 6,
-      'underlay-opacity': 0.4,
+      'underlay-opacity': 0.35,
+      'underlay-shape': 'ellipse',
       'color': '#38bdf8'
     }
   },
@@ -492,16 +469,14 @@ const cytoscapeStylesheet: any[] = [
       'line-color': '#334155', // slate-700
       'curve-style': 'taxi',
       'taxi-direction': 'vertical',
-      'taxi-turn': 25,
+      'taxi-turn': 20,
       'target-arrow-shape': 'triangle',
       'target-arrow-color': '#475569',
-      'arrow-scale': 0.8,
-      'transition-property': 'line-color, target-arrow-color, width',
-      'transition-duration': '0.15s'
+      'arrow-scale': 0.8
     }
   },
 
-  // Edge to Reachable Device
+  // Edge to Reachable Device (Solid Emerald)
   {
     selector: 'edge[status = "REACHABLE"]',
     style: {
@@ -524,9 +499,9 @@ const cytoscapeStylesheet: any[] = [
   {
     selector: 'edge[edgeType = "group-link"]',
     style: {
-      'line-color': '#b45309', // amber-700
-      'target-arrow-color': '#f59e0b',
-      'width': 2.5
+      'line-color': '#475569',
+      'target-arrow-color': '#94a3b8',
+      'width': 2
     }
   }
 ];
@@ -534,16 +509,64 @@ const cytoscapeStylesheet: any[] = [
 // ---------------------------------------------------------------------------
 // Cytoscape Lifecycle & Event Handlers
 // ---------------------------------------------------------------------------
+function computeFingerprint(): string {
+  const devSig = allDevices.value.map(d => `${d.device_id}:${d.parent_device_id}:${d.group_id}`).join('|');
+  const grpSig = flatGroups.value.map(g => `${g.group_id}`).join('|');
+  return `${layoutMode.value}::${devSig}::${grpSig}`;
+}
+
+// In-place node data update: updates icons and telemetry in place WITHOUT tearing down elements or re-running layout
+function updateNodeDataInPlace() {
+  if (!cy.value) return;
+
+  for (const dev of allDevices.value) {
+    const node = cy.value.getElementById(`d_${dev.device_id}`);
+    if (node.length > 0) {
+      const newStatus = dev.reachability_status;
+      const isMaint = dev.is_in_maintenance;
+      const newSvg = getDeviceSvgDataUri(dev.type_id, newStatus, isMaint);
+
+      node.data({
+        status: newStatus,
+        isMaintenance: isMaint,
+        latencyUs: dev.latest_latency_us,
+        lossPct: dev.latest_loss_pct,
+        bgImage: newSvg
+      });
+    }
+  }
+
+  // Also update group nodes if in Mode 1
+  if (layoutMode.value === 'ROUTER_GROUPS_PCS') {
+    for (const group of flatGroups.value) {
+      const gNode = cy.value.getElementById(`g_${group.group_id}`);
+      if (gNode.length > 0) {
+        const pcs = getDevicesForGroup(group.group_id);
+        const offlineCount = pcs.filter(p => p.reachability_status === 'UNREACHABLE').length;
+        const groupStatus: 'REACHABLE' | 'UNREACHABLE' | 'UNKNOWN' = 
+          pcs.length === 0 ? 'UNKNOWN' : (offlineCount === 0 ? 'REACHABLE' : 'UNREACHABLE');
+        const groupSvg = getGroupSvgDataUri(groupStatus);
+
+        gNode.data({
+          status: groupStatus,
+          bgImage: groupSvg
+        });
+      }
+    }
+  }
+}
+
 function initCytoscape() {
   if (!cyContainerRef.value) return;
 
-  // Destroy previous instance cleanly
+  // Clean teardown
   if (cy.value) {
     cy.value.destroy();
     cy.value = null;
   }
 
   const elements = buildElements();
+  lastTopologyFingerprint.value = computeFingerprint();
 
   const instance = cytoscape({
     container: cyContainerRef.value,
@@ -552,19 +575,19 @@ function initCytoscape() {
     layout: {
       name: 'dagre',
       rankDir: 'TB',
-      nodeSep: 60,
-      rankSep: 75,
-      animate: false
+      nodeSep: 65,
+      rankSep: 80,
+      animate: false // Synchronous layout avoids visual bouncing and double-render flashes
     } as any,
     zoom: 1,
     minZoom: 0.25,
     maxZoom: 3.0,
-    wheelSensitivity: 0.22, // Smooth, natural cursor-anchored wheel zooming
+    wheelSensitivity: 0.22, // Natural cursor-anchored wheel zooming
     boxSelectionEnabled: false,
     autounselectify: false
   });
 
-  // Fit graph cleanly with margin
+  // Fit canvas view once layout is positioned
   instance.fit(undefined, 50);
 
   // Click on Device Node -> Emit Inspect Event
@@ -582,12 +605,11 @@ function initCytoscape() {
     const pos = node.renderedPosition();
     const data = node.data();
 
-    // Do not show full telemetry card on synthetic fallback
     if (data.id === 'gateway_fallback') return;
 
     hoveredNode.value = {
       deviceId: data.deviceId,
-      displayName: data.label,
+      displayName: data.label.replace('\n', ' '),
       ip: data.ip,
       mac: data.mac,
       typeName: data.typeName || 'Network Node',
@@ -615,7 +637,7 @@ function initCytoscape() {
   cy.value = instance;
 }
 
-// Re-render graph when devices, groups or layout mode change
+// Re-render graph only when structural topology changes or mode switches
 function refreshGraph() {
   if (!cy.value) {
     initCytoscape();
@@ -623,16 +645,17 @@ function refreshGraph() {
   }
 
   const elements = buildElements();
+  lastTopologyFingerprint.value = computeFingerprint();
+
   cy.value.elements().remove();
   cy.value.add(elements);
 
   const layout = cy.value.layout({
     name: 'dagre',
     rankDir: 'TB',
-    nodeSep: layoutMode.value === 'ROUTER_GROUPS_PCS' ? 55 : 65,
-    rankSep: 75,
-    animate: true,
-    animationDuration: 300
+    nodeSep: layoutMode.value === 'ROUTER_GROUPS_PCS' ? 60 : 70,
+    rankSep: 80,
+    animate: false // Instant clean layout with zero intermediate drift
   } as any);
 
   layout.run();
@@ -667,18 +690,38 @@ function resetFit() {
   cy.value.fit(undefined, 50);
 }
 
-// Watchers
+// Mode Switcher Watcher
 watch(layoutMode, () => {
   refreshGraph();
 });
 
+// Telemetry Polling Watcher: Checks structural fingerprint first to prevent duplicate reloads
 watch(() => devicesStore.devices, () => {
-  refreshGraph();
+  if (!cy.value) {
+    initCytoscape();
+    return;
+  }
+  const currentFingerprint = computeFingerprint();
+  if (currentFingerprint === lastTopologyFingerprint.value) {
+    // Structure unchanged -> perform seamless in-place data & icon update
+    updateNodeDataInPlace();
+  } else {
+    // Structure changed -> re-run layout
+    refreshGraph();
+  }
 }, { deep: true });
 
 onMounted(async () => {
+  // Wait for initial data resolution so Cytoscape initializes ONCE with full data
+  const loaders = [];
   if (!groupsStore.groupsTree || groupsStore.groupsTree.length === 0) {
-    await groupsStore.fetchGroups();
+    loaders.push(groupsStore.fetchGroups());
+  }
+  if (!devicesStore.devices || devicesStore.devices.length === 0) {
+    loaders.push(devicesStore.fetchDevices());
+  }
+  if (loaders.length > 0) {
+    await Promise.all(loaders);
   }
   initCytoscape();
 });
