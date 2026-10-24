@@ -209,12 +209,23 @@ public class SubnetDiscoveryServiceTests
     }
 
     [Fact]
-    public async Task GetActiveOrLatestScanAsync_WhenCalled_ReturnsBaselineOrActiveScan()
+    public async Task GetActiveOrLatestScanAsync_WhenScanTriggered_ReturnsActiveOrLatestScan()
     {
-        var scan = await _discoveryService.GetActiveOrLatestScanAsync(siteId: 1);
+        int testSiteId = 555;
+        var request = new SubnetScanRequest(SubnetCidr: "192.168.55.0/30");
+        var init = await _discoveryService.TriggerScanAsync(request, siteId: testSiteId);
+
+        var scan = await _discoveryService.GetActiveOrLatestScanAsync(siteId: testSiteId);
         Assert.NotNull(scan);
-        Assert.NotEmpty(scan.DiscoveredAssets);
-        Assert.True(scan.ProgressPct >= 0);
+        Assert.Equal(init.ScanId, scan.ScanId);
+        Assert.Equal("192.168.55.0/30", scan.TargetCidr);
+    }
+
+    [Fact]
+    public async Task GetActiveOrLatestScanAsync_WhenNoScanPerformed_ReturnsNull()
+    {
+        var scan = await _discoveryService.GetActiveOrLatestScanAsync(siteId: 8888);
+        Assert.Null(scan);
     }
 }
 

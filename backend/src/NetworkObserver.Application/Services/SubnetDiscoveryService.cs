@@ -125,8 +125,6 @@ public class SubnetDiscoveryService : ISubnetDiscoveryService
 
     public Task<SubnetScanStatusResponse?> GetActiveOrLatestScanAsync(int siteId = 1, CancellationToken ct = default)
     {
-        EnsureInitialBaselineScan(siteId);
-
         // 1. Check if there is an active running scan for this site
         if (ActiveScanPerSite.TryGetValue(siteId, out var activeScanId) &&
             Scans.TryGetValue(activeScanId, out var activeState) &&
@@ -385,110 +383,6 @@ public class SubnetDiscoveryService : ISubnetDiscoveryService
     {
         var bytes = IPAddress.Parse(ip).GetAddressBytes();
         return $"02:00:{bytes[0]:X2}:{bytes[1]:X2}:{bytes[2]:X2}:{bytes[3]:X2}";
-    }
-
-    private static void EnsureInitialBaselineScan(int siteId = 1)
-    {
-        if (Scans.Values.Any(s => s.SiteId == siteId)) return;
-
-        var scanId = $"scan_baseline_site_{siteId}";
-        var baseline = new DiscoveryScanState(
-            scanId: scanId,
-            siteId: siteId,
-            targetCidr: "10.0.1.0/24",
-            totalIps: 254,
-            startedAt: DateTimeOffset.UtcNow.AddMinutes(-15)
-        )
-        {
-            Status = "COMPLETED",
-            ProgressPct = 100.0,
-            ScannedIps = 254
-        };
-
-        // Realistic Computer Lab Network Assets (Campus Lab 1 - CS Dept):
-        // Core Router, Lab Switch, Domain Server, Lab Workstations, Network Printer
-        baseline.DiscoveredAssets.Add(new DiscoveredAssetDto(
-            PrimaryIp: "10.0.1.1",
-            MacAddress: "00:1A:2B:11:22:33",
-            Vendor: "Cisco Systems",
-            InferredType: "CORE_ROUTER",
-            IsAlreadyRegistered: true,
-            ResponseTimeMs: 0.35
-        ));
-
-        baseline.DiscoveredAssets.Add(new DiscoveredAssetDto(
-            PrimaryIp: "10.0.1.2",
-            MacAddress: "00:1A:2B:44:55:66",
-            Vendor: "Cisco Systems",
-            InferredType: "ACCESS_SWITCH",
-            IsAlreadyRegistered: true,
-            ResponseTimeMs: 0.58
-        ));
-
-        baseline.DiscoveredAssets.Add(new DiscoveredAssetDto(
-            PrimaryIp: "10.0.1.10",
-            MacAddress: "00:14:22:AA:BB:CC",
-            Vendor: "Dell Inc.",
-            InferredType: "SERVER",
-            IsAlreadyRegistered: true,
-            ResponseTimeMs: 1.12
-        ));
-
-        baseline.DiscoveredAssets.Add(new DiscoveredAssetDto(
-            PrimaryIp: "10.0.1.101",
-            MacAddress: "00:14:22:11:01:01",
-            Vendor: "Dell Inc.",
-            InferredType: "PC",
-            IsAlreadyRegistered: true,
-            ResponseTimeMs: 1.45
-        ));
-
-        baseline.DiscoveredAssets.Add(new DiscoveredAssetDto(
-            PrimaryIp: "10.0.1.102",
-            MacAddress: "00:14:22:11:01:02",
-            Vendor: "Dell Inc.",
-            InferredType: "PC",
-            IsAlreadyRegistered: true,
-            ResponseTimeMs: 1.38
-        ));
-
-        baseline.DiscoveredAssets.Add(new DiscoveredAssetDto(
-            PrimaryIp: "10.0.1.103",
-            MacAddress: "3C:D9:2B:22:01:03",
-            Vendor: "HP Enterprise",
-            InferredType: "PC",
-            IsAlreadyRegistered: false,
-            ResponseTimeMs: 2.05
-        ));
-
-        baseline.DiscoveredAssets.Add(new DiscoveredAssetDto(
-            PrimaryIp: "10.0.1.104",
-            MacAddress: "3C:D9:2B:22:01:04",
-            Vendor: "HP Enterprise",
-            InferredType: "PC",
-            IsAlreadyRegistered: false,
-            ResponseTimeMs: 2.21
-        ));
-
-        baseline.DiscoveredAssets.Add(new DiscoveredAssetDto(
-            PrimaryIp: "10.0.1.105",
-            MacAddress: "54:EE:75:33:01:05",
-            Vendor: "Lenovo",
-            InferredType: "PC",
-            IsAlreadyRegistered: false,
-            ResponseTimeMs: 1.89
-        ));
-
-        baseline.DiscoveredAssets.Add(new DiscoveredAssetDto(
-            PrimaryIp: "10.0.1.200",
-            MacAddress: "3C:D9:2B:88:01:FE",
-            Vendor: "HP Enterprise",
-            InferredType: "PRINTER",
-            IsAlreadyRegistered: false,
-            ResponseTimeMs: 3.42
-        ));
-
-        Scans.TryAdd(scanId, baseline);
     }
 
     private class DiscoveryScanState
