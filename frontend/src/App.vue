@@ -1,18 +1,18 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, shallowRef, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, shallowRef, watch } from 'vue';
 import { 
   Activity, 
   ShieldCheck, 
   RefreshCw, 
   LogOut, 
-  UserCheck,
-  Network,
-  List,
-  Layers,
-  Radar,
-  FileSpreadsheet,
-  Settings,
-  KeyRound
+  Network, 
+  List, 
+  Layers, 
+  Radar, 
+  FileSpreadsheet, 
+  Settings, 
+  KeyRound, 
+  Plus 
 } from 'lucide-vue-next';
 import axios from 'axios';
 import { useAuthStore } from './stores/auth';
@@ -57,6 +57,19 @@ const errorMsg = ref<string | null>(null);
 type TabType = 'TOPOLOGY' | 'INVENTORY' | 'LAB_GROUPS' | 'SUBNET_SWEEP' | 'BULK_INGEST' | 'AUDIT_TRAIL' | 'SETTINGS';
 const currentTab = ref<TabType>('TOPOLOGY');
 
+const tabTitle = computed(() => {
+  switch (currentTab.value) {
+    case 'TOPOLOGY': return 'Topology Canvas';
+    case 'INVENTORY': return 'Device Inventory';
+    case 'LAB_GROUPS': return 'Computer Labs & Hierarchy';
+    case 'SUBNET_SWEEP': return 'Subnet Sweep Discovery';
+    case 'BULK_INGEST': return 'Bulk Ingestion Pipeline';
+    case 'AUDIT_TRAIL': return 'Security Audit Trail';
+    case 'SETTINGS': return 'Enclave Settings';
+    default: return 'Overview';
+  }
+});
+
 // Modals state
 const isDeviceModalOpen = ref(false);
 const deviceToEdit = ref<Device | null>(null);
@@ -93,7 +106,6 @@ async function handleLogout() {
 
 function startAutoRefresh() {
   stopAutoRefresh();
-  // 5s periodic background refresh keeping HUD and topology badges live
   pollingTimer = setInterval(async () => {
     if (authStore.isAuthenticated) {
       await devicesStore.fetchDevices();
@@ -200,213 +212,258 @@ function filterByStatusFromHud(status: string) {
 
 <template>
   <!-- Loading Gate before session resolution -->
-  <div v-if="!authStore.isInitialized" class="min-h-screen bg-tactical-bg flex items-center justify-center font-mono">
+  <div v-if="!authStore.isInitialized" class="min-h-screen bg-zinc-950 flex items-center justify-center font-mono">
     <div class="text-center space-y-3">
-      <Activity class="w-8 h-8 text-tactical-cyan mx-auto animate-spin" />
-      <div class="text-xs tracking-widest text-slate-400 uppercase">
-        INITIALIZING ENCLAVE SECURITY SUBSYSTEM...
+      <Activity class="w-8 h-8 text-emerald-400 mx-auto animate-spin" />
+      <div class="text-xs tracking-widest text-zinc-400 uppercase">
+        Initializing Network Observer...
       </div>
     </div>
   </div>
 
-  <!-- Pre-Dashboard Cyber-Tactical Login Portal -->
+  <!-- Pre-Dashboard Login Portal -->
   <LoginView v-else-if="!authStore.isAuthenticated" />
 
-  <!-- Authenticated Operations Workspace -->
-  <div v-else class="min-h-screen bg-tactical-bg text-slate-100 flex flex-col font-sans select-none overflow-x-hidden">
+  <!-- Authenticated Operations Workspace with Sidebar Layout -->
+  <div v-else class="h-screen w-screen flex bg-zinc-950 text-zinc-100 font-sans select-none overflow-hidden">
     
-    <!-- Top Tactical Navigation Bar -->
-    <header class="h-14 border-b border-tactical-border bg-tactical-surface px-6 flex items-center justify-between sticky top-0 z-30">
-      <div class="flex items-center space-x-3">
-        <div class="w-8 h-8 rounded bg-tactical-panel border border-tactical-cyan/40 flex items-center justify-center text-tactical-cyan shadow-[0_0_12px_rgba(0,240,255,0.2)]">
-          <Activity class="w-5 h-5 animate-pulse" />
+    <!-- Left Sidebar (shadcn UI style) -->
+    <aside class="w-64 bg-zinc-900/90 border-r border-zinc-800 flex flex-col flex-shrink-0 z-30 justify-between select-none backdrop-blur">
+      
+      <!-- Top Brand & Navigation -->
+      <div class="flex flex-col min-h-0 overflow-y-auto">
+        <!-- Brand Header -->
+        <div class="h-14 px-4 flex items-center gap-3 border-b border-zinc-800 flex-shrink-0">
+          <div class="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-sm">
+            <Activity class="w-4 h-4 animate-pulse" />
+          </div>
+          <div class="min-w-0">
+            <div class="flex items-center gap-2">
+              <span class="font-bold text-sm text-zinc-100 tracking-tight">Observer LAN</span>
+              <span class="text-[10px] px-1.5 py-0.2 rounded bg-zinc-800 text-emerald-400 font-mono border border-zinc-700">v2.2</span>
+            </div>
+            <div class="text-[11px] text-zinc-400 truncate">Computer Labs NOC</div>
+          </div>
         </div>
-        <div>
-          <h1 class="text-sm font-semibold tracking-wider uppercase text-slate-100 flex items-center gap-2">
-            Network Observer
-            <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-tactical-panel border border-tactical-border text-tactical-cyan">
-              v2.2-CAMPUS
+
+        <!-- Navigation Section -->
+        <nav class="p-3 space-y-1">
+          <div class="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+            Monitoring
+          </div>
+
+          <button
+            @click="currentTab = 'TOPOLOGY'"
+            class="w-full flex items-center gap-3 px-3 py-2 rounded-md text-xs font-medium transition-colors text-left"
+            :class="currentTab === 'TOPOLOGY'
+              ? 'bg-zinc-800 text-zinc-100 shadow-sm'
+              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'"
+          >
+            <Network class="w-4 h-4 text-emerald-400" />
+            <span>Topology Canvas</span>
+          </button>
+
+          <button
+            @click="currentTab = 'INVENTORY'"
+            class="w-full flex items-center justify-between px-3 py-2 rounded-md text-xs font-medium transition-colors text-left"
+            :class="currentTab === 'INVENTORY'
+              ? 'bg-zinc-800 text-zinc-100 shadow-sm'
+              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'"
+          >
+            <div class="flex items-center gap-3">
+              <List class="w-4 h-4 text-cyan-400" />
+              <span>Device Inventory</span>
+            </div>
+            <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-zinc-800/80 text-zinc-400 border border-zinc-700/60">
+              {{ devicesStore.totalCount }}
             </span>
-          </h1>
-          <p class="text-[10px] font-mono text-slate-400">UNIVERSITY & ENTERPRISE COMPUTER LAB NOC</p>
-        </div>
+          </button>
+
+          <button
+            @click="currentTab = 'LAB_GROUPS'"
+            class="w-full flex items-center gap-3 px-3 py-2 rounded-md text-xs font-medium transition-colors text-left"
+            :class="currentTab === 'LAB_GROUPS'
+              ? 'bg-zinc-800 text-zinc-100 shadow-sm'
+              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'"
+          >
+            <Layers class="w-4 h-4 text-amber-400" />
+            <span>Computer Labs</span>
+          </button>
+
+          <button
+            @click="currentTab = 'SUBNET_SWEEP'"
+            class="w-full flex items-center gap-3 px-3 py-2 rounded-md text-xs font-medium transition-colors text-left"
+            :class="currentTab === 'SUBNET_SWEEP'
+              ? 'bg-zinc-800 text-zinc-100 shadow-sm'
+              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'"
+          >
+            <Radar class="w-4 h-4 text-cyan-400" />
+            <span>Subnet Discovery</span>
+          </button>
+
+          <div class="pt-3 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+            Operations
+          </div>
+
+          <button
+            @click="currentTab = 'BULK_INGEST'"
+            class="w-full flex items-center gap-3 px-3 py-2 rounded-md text-xs font-medium transition-colors text-left"
+            :class="currentTab === 'BULK_INGEST'
+              ? 'bg-zinc-800 text-zinc-100 shadow-sm'
+              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'"
+          >
+            <FileSpreadsheet class="w-4 h-4 text-violet-400" />
+            <span>Bulk Ingestion</span>
+          </button>
+
+          <button
+            @click="currentTab = 'AUDIT_TRAIL'"
+            class="w-full flex items-center gap-3 px-3 py-2 rounded-md text-xs font-medium transition-colors text-left"
+            :class="currentTab === 'AUDIT_TRAIL'
+              ? 'bg-zinc-800 text-zinc-100 shadow-sm'
+              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'"
+          >
+            <ShieldCheck class="w-4 h-4 text-emerald-400" />
+            <span>Audit Trail</span>
+          </button>
+
+          <button
+            @click="currentTab = 'SETTINGS'"
+            class="w-full flex items-center gap-3 px-3 py-2 rounded-md text-xs font-medium transition-colors text-left"
+            :class="currentTab === 'SETTINGS'
+              ? 'bg-zinc-800 text-zinc-100 shadow-sm'
+              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'"
+          >
+            <Settings class="w-4 h-4 text-zinc-400" />
+            <span>Enclave Settings</span>
+          </button>
+        </nav>
       </div>
 
-      <!-- Center Status & RBAC Pill -->
-      <div class="hidden md:flex items-center space-x-5 text-xs font-mono">
-        <div class="flex items-center space-x-2">
-          <span class="relative flex h-2 w-2">
-            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-tactical-online opacity-75"></span>
-            <span class="relative inline-flex rounded-full h-2 w-2 bg-tactical-online"></span>
-          </span>
-          <span class="text-slate-300">TELEMETRY: ACTIVE (5s)</span>
+      <!-- Bottom User Profile & Status Controls -->
+      <div class="p-3 border-t border-zinc-800 bg-zinc-900/60 space-y-2 flex-shrink-0">
+        <!-- Live Telemetry Status -->
+        <div class="px-2 py-1 flex items-center justify-between text-[11px] text-zinc-400 font-mono">
+          <div class="flex items-center gap-2">
+            <span class="relative flex h-2 w-2">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span>5s Telemetry Active</span>
+          </div>
+          <button
+            @click="checkApiHealth"
+            :disabled="isLoadingHealth"
+            class="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition"
+            title="Refresh Health"
+          >
+            <RefreshCw class="w-3.5 h-3.5" :class="{ 'animate-spin': isLoadingHealth }" />
+          </button>
         </div>
-        <div class="text-slate-600">|</div>
-        <div class="flex items-center space-x-1.5 text-slate-300">
-          <UserCheck class="w-4 h-4 text-tactical-cyan" />
-          <span class="text-slate-400 font-semibold">{{ authStore.username }}</span>
-          <span class="text-[10px] px-1.5 py-0.5 rounded bg-tactical-panel border border-tactical-cyan/40 text-tactical-cyan uppercase">
-            {{ authStore.roleName }}
-          </span>
+
+        <!-- User Card -->
+        <div class="p-2 rounded-lg bg-zinc-800/60 border border-zinc-700/60 flex items-center justify-between">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <div class="w-7 h-7 rounded-md bg-zinc-700 flex items-center justify-center font-bold text-xs text-zinc-200 flex-shrink-0">
+              {{ (authStore.username || 'A')[0].toUpperCase() }}
+            </div>
+            <div class="min-w-0 truncate">
+              <div class="text-xs font-medium text-zinc-200 truncate">{{ authStore.username }}</div>
+              <div class="text-[10px] text-emerald-400 uppercase font-mono">{{ authStore.roleName }}</div>
+            </div>
+          </div>
+          <div class="flex items-center gap-1">
+            <button
+              @click="isPasswordModalOpen = true"
+              class="p-1.5 rounded-md hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 transition"
+              title="Change Passphrase"
+            >
+              <KeyRound class="w-3.5 h-3.5" />
+            </button>
+            <button
+              @click="handleLogout"
+              class="p-1.5 rounded-md hover:bg-rose-950/60 text-zinc-400 hover:text-rose-400 transition"
+              title="Log Out"
+            >
+              <LogOut class="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
       </div>
+    </aside>
 
-      <!-- Right Controls: Ping, Password Change & Logout -->
-      <div class="flex items-center space-x-2.5">
-        <button
-          @click="checkApiHealth"
-          :disabled="isLoadingHealth"
-          class="flex items-center space-x-1.5 px-2.5 py-1.5 rounded text-xs font-mono bg-tactical-panel border border-tactical-border hover:border-tactical-cyan text-slate-200 hover:text-tactical-cyan transition"
-          title="Query Backend Health Endpoint"
-        >
-          <RefreshCw class="w-3.5 h-3.5" :class="{ 'animate-spin': isLoadingHealth }" />
-          <span class="hidden sm:inline">PING API</span>
-        </button>
+    <!-- Main Workspace Area -->
+    <div class="flex-1 flex flex-col h-screen overflow-hidden min-w-0">
+      
+      <!-- Top Header Strip (Minimal, clean, un-cluttered) -->
+      <header class="h-14 border-b border-zinc-800 bg-zinc-900/60 px-6 flex items-center justify-between flex-shrink-0 backdrop-blur">
+        <div class="flex items-center gap-3">
+          <h2 class="text-sm font-semibold text-zinc-100 tracking-tight">
+            {{ tabTitle }}
+          </h2>
+          <span class="text-xs text-zinc-400 hidden sm:inline">/</span>
+          <span class="text-xs text-zinc-400 hidden sm:inline">Computer Labs & Campus Network</span>
+        </div>
 
-        <button
-          @click="isPasswordModalOpen = true"
-          class="flex items-center space-x-1.5 px-2.5 py-1.5 rounded text-xs font-mono bg-tactical-panel border border-tactical-border hover:border-tactical-cyan text-slate-300 hover:text-tactical-cyan transition"
-          title="Update Passphrase"
-        >
-          <KeyRound class="w-3.5 h-3.5" />
-          <span class="hidden sm:inline">SECURITY</span>
-        </button>
+        <!-- Action Controls -->
+        <div class="flex items-center gap-2.5">
+          <button
+            v-if="currentTab === 'INVENTORY'"
+            @click="openCreateDeviceModal"
+            class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-sm"
+          >
+            <Plus class="w-3.5 h-3.5" />
+            <span>Add Device</span>
+          </button>
+        </div>
+      </header>
 
-        <button
-          @click="handleLogout"
-          class="flex items-center space-x-1.5 px-2.5 py-1.5 rounded text-xs font-mono bg-tactical-panel border border-tactical-border hover:border-tactical-alert/60 text-slate-300 hover:text-tactical-alert transition"
-        >
-          <LogOut class="w-3.5 h-3.5" />
-          <span>LOGOUT</span>
-        </button>
+      <!-- Minimal HUD Metric Banner Strip -->
+      <div class="px-6 pt-3 pb-2 flex-shrink-0">
+        <HudMetricBanner @filter-status="filterByStatusFromHud" />
       </div>
-    </header>
 
-    <!-- Top HUD Metric Banner (5 Tactical Cards) -->
-    <div class="px-6 pt-5 pb-2">
-      <HudMetricBanner @filter-status="filterByStatusFromHud" />
+      <!-- Dynamic Workspace View Container -->
+      <main class="flex-1 px-6 pb-6 pt-1 flex flex-col min-h-0 overflow-auto">
+        <TopologyView 
+          v-if="currentTab === 'TOPOLOGY'" 
+          @inspect="(id) => devicesStore.selectDevice(id)"
+        />
+
+        <DeviceInventoryView 
+          v-else-if="currentTab === 'INVENTORY'"
+          @inspect="(id) => devicesStore.selectDevice(id)"
+          @create="openCreateDeviceModal"
+          @edit="(d) => openEditDeviceModal(d)"
+          @delete="(d) => openDeleteDeviceModal(d)"
+        />
+
+        <GroupHierarchyView 
+          v-else-if="currentTab === 'LAB_GROUPS'"
+          @create-top="openCreateTopGroupModal"
+          @create-sub="(parent) => openCreateSubgroupModal(parent)"
+          @edit="(g) => openEditGroupModal(g)"
+        />
+
+        <SubnetDiscoveryView 
+          v-else-if="currentTab === 'SUBNET_SWEEP'"
+          @import-host="(h) => handleImportDiscoveredHost(h)"
+        />
+
+        <BulkIngestView 
+          v-else-if="currentTab === 'BULK_INGEST'"
+          @commit="isBatchCommitModalOpen = true"
+        />
+
+        <AuditTrailView 
+          v-else-if="currentTab === 'AUDIT_TRAIL'"
+        />
+
+        <EnclaveSettingsView 
+          v-else-if="currentTab === 'SETTINGS'"
+        />
+      </main>
     </div>
-
-    <!-- View Navigation Tab Bar -->
-    <div class="px-6 pt-3 pb-2 flex items-center space-x-2 overflow-x-auto text-xs font-mono select-none">
-      <button
-        @click="currentTab = 'TOPOLOGY'"
-        class="flex items-center space-x-2 px-3.5 py-2 rounded-lg border transition whitespace-nowrap"
-        :class="currentTab === 'TOPOLOGY'
-          ? 'bg-tactical-cyan/15 border-tactical-cyan text-tactical-cyan font-bold shadow-[0_0_12px_rgba(0,240,255,0.2)]'
-          : 'bg-tactical-surface border-tactical-border text-slate-400 hover:text-slate-200 hover:border-slate-700'"
-      >
-        <Network class="w-4 h-4" />
-        <span>Logical Topology Canvas</span>
-      </button>
-
-      <button
-        @click="currentTab = 'INVENTORY'"
-        class="flex items-center space-x-2 px-3.5 py-2 rounded-lg border transition whitespace-nowrap"
-        :class="currentTab === 'INVENTORY'
-          ? 'bg-tactical-cyan/15 border-tactical-cyan text-tactical-cyan font-bold shadow-[0_0_12px_rgba(0,240,255,0.2)]'
-          : 'bg-tactical-surface border-tactical-border text-slate-400 hover:text-slate-200 hover:border-slate-700'"
-      >
-        <List class="w-4 h-4" />
-        <span>Device Inventory ({{ devicesStore.totalCount }})</span>
-      </button>
-
-      <button
-        @click="currentTab = 'LAB_GROUPS'"
-        class="flex items-center space-x-2 px-3.5 py-2 rounded-lg border transition whitespace-nowrap"
-        :class="currentTab === 'LAB_GROUPS'
-          ? 'bg-tactical-cyan/15 border-tactical-cyan text-tactical-cyan font-bold shadow-[0_0_12px_rgba(0,240,255,0.2)]'
-          : 'bg-tactical-surface border-tactical-border text-slate-400 hover:text-slate-200 hover:border-slate-700'"
-      >
-        <Layers class="w-4 h-4" />
-        <span>Computer Labs & Hierarchy</span>
-      </button>
-
-      <button
-        @click="currentTab = 'SUBNET_SWEEP'"
-        class="flex items-center space-x-2 px-3.5 py-2 rounded-lg border transition whitespace-nowrap"
-        :class="currentTab === 'SUBNET_SWEEP'
-          ? 'bg-tactical-cyan/15 border-tactical-cyan text-tactical-cyan font-bold shadow-[0_0_12px_rgba(0,240,255,0.2)]'
-          : 'bg-tactical-surface border-tactical-border text-slate-400 hover:text-slate-200 hover:border-slate-700'"
-      >
-        <Radar class="w-4 h-4" />
-        <span>Subnet Sweep Discovery</span>
-      </button>
-
-      <button
-        @click="currentTab = 'BULK_INGEST'"
-        class="flex items-center space-x-2 px-3.5 py-2 rounded-lg border transition whitespace-nowrap"
-        :class="currentTab === 'BULK_INGEST'
-          ? 'bg-tactical-cyan/15 border-tactical-cyan text-tactical-cyan font-bold shadow-[0_0_12px_rgba(0,240,255,0.2)]'
-          : 'bg-tactical-surface border-tactical-border text-slate-400 hover:text-slate-200 hover:border-slate-700'"
-      >
-        <FileSpreadsheet class="w-4 h-4" />
-        <span>Bulk Ingestion Pipeline</span>
-      </button>
-
-      <button
-        @click="currentTab = 'AUDIT_TRAIL'"
-        class="flex items-center space-x-2 px-3.5 py-2 rounded-lg border transition whitespace-nowrap"
-        :class="currentTab === 'AUDIT_TRAIL'
-          ? 'bg-tactical-cyan/15 border-tactical-cyan text-tactical-cyan font-bold shadow-[0_0_12px_rgba(0,240,255,0.2)]'
-          : 'bg-tactical-surface border-tactical-border text-slate-400 hover:text-slate-200 hover:border-slate-700'"
-      >
-        <ShieldCheck class="w-4 h-4" />
-        <span>Security Audit Trail</span>
-      </button>
-
-      <button
-        @click="currentTab = 'SETTINGS'"
-        class="flex items-center space-x-2 px-3.5 py-2 rounded-lg border transition whitespace-nowrap"
-        :class="currentTab === 'SETTINGS'
-          ? 'bg-tactical-cyan/15 border-tactical-cyan text-tactical-cyan font-bold shadow-[0_0_12px_rgba(0,240,255,0.2)]'
-          : 'bg-tactical-surface border-tactical-border text-slate-400 hover:text-slate-200 hover:border-slate-700'"
-      >
-        <Settings class="w-4 h-4" />
-        <span>Enclave & Poller Settings</span>
-      </button>
-    </div>
-
-    <!-- Main Dynamic Workspace View -->
-    <main class="flex-1 px-6 pb-6 pt-2 flex flex-col min-h-[500px]">
-      <TopologyView 
-        v-if="currentTab === 'TOPOLOGY'" 
-        @inspect="(id) => devicesStore.selectDevice(id)"
-      />
-
-      <DeviceInventoryView 
-        v-else-if="currentTab === 'INVENTORY'"
-        @inspect="(id) => devicesStore.selectDevice(id)"
-        @create="openCreateDeviceModal"
-        @edit="(d) => openEditDeviceModal(d)"
-        @delete="(d) => openDeleteDeviceModal(d)"
-      />
-
-      <GroupHierarchyView 
-        v-else-if="currentTab === 'LAB_GROUPS'"
-        @create-top="openCreateTopGroupModal"
-        @create-sub="(parent) => openCreateSubgroupModal(parent)"
-        @edit="(g) => openEditGroupModal(g)"
-      />
-
-      <SubnetDiscoveryView 
-        v-else-if="currentTab === 'SUBNET_SWEEP'"
-        @import-host="(h) => handleImportDiscoveredHost(h)"
-      />
-
-      <BulkIngestView 
-        v-else-if="currentTab === 'BULK_INGEST'"
-        @commit="isBatchCommitModalOpen = true"
-      />
-
-      <AuditTrailView 
-        v-else-if="currentTab === 'AUDIT_TRAIL'"
-      />
-
-      <EnclaveSettingsView 
-        v-else-if="currentTab === 'SETTINGS'"
-      />
-    </main>
 
     <!-- Slide-Over Telemetry Inspector (Right Drawer) -->
     <TelemetryInspector 

@@ -10,8 +10,8 @@ import {
   Trash2, 
   Server, 
   Monitor, 
-  Radio, 
-  Layers 
+  Router, 
+  ArrowLeftRight 
 } from 'lucide-vue-next';
 import type { Device } from '../../types/device';
 
@@ -36,9 +36,9 @@ function formatRam(ram?: number | null): string {
 
 function getTypeIcon(typeId: number) {
   switch (typeId) {
-    case 1: return Radio;
-    case 2: return Layers;
-    case 3: return Server;
+    case 1: return Router;
+    case 2:
+    case 3: return ArrowLeftRight;
     case 4: return Server;
     case 5: default: return Monitor;
   }

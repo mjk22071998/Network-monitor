@@ -6,11 +6,11 @@ import {
   ZoomIn, 
   ZoomOut, 
   RotateCcw, 
-  Layers, 
-  Server, 
-  Radio, 
-  Monitor, 
-  Network 
+  Router,
+  ArrowLeftRight,
+  Monitor,
+  Server,
+  Network
 } from 'lucide-vue-next';
 
 const devicesStore = useDevicesStore();
@@ -22,7 +22,7 @@ const emit = defineEmits<{
 // Pan and Zoom state
 const scale = ref<number>(1);
 const panX = ref<number>(50);
-const panY = ref<number>(50);
+const panY = ref<number>(40);
 const isDragging = ref<boolean>(false);
 const startMouseX = ref<number>(0);
 const startMouseY = ref<number>(0);
@@ -62,15 +62,10 @@ function zoomOut() {
 function resetView() {
   scale.value = 1;
   panX.value = 50;
-  panY.value = 50;
+  panY.value = 40;
 }
 
-// Group devices into hierarchy layers:
-// Layer 0: Core Routers (type_id 1)
-// Layer 1: Aggregate / Distribution Switches (type_id 2)
-// Layer 2: Access Switches (type_id 3)
-// Layer 3: Endpoints (Servers type_id 4, PCs type_id 5) organized into 2 parallel vertical branches under each access switch
-
+// Device grouping by hierarchy layer
 const coreRouters = computed(() => {
   const list = Array.isArray(devicesStore.devices) ? devicesStore.devices : [];
   return list.filter(d => d && d.type_id === 1);
@@ -88,7 +83,6 @@ const endpoints = computed(() => {
   return list.filter(d => d && (d.type_id === 4 || d.type_id === 5));
 });
 
-// Find children for a given switch
 function getChildrenForSwitch(switchId: number): { leftBranch: Device[]; rightBranch: Device[] } {
   const children = endpoints.value.filter(d => d.parent_device_id === switchId);
   const leftBranch: Device[] = [];
@@ -102,85 +96,108 @@ function getChildrenForSwitch(switchId: number): { leftBranch: Device[]; rightBr
   return { leftBranch, rightBranch };
 }
 
-// Or unparented endpoints
 const unparentedEndpoints = computed(() => {
   const allDevices = Array.isArray(devicesStore.devices) ? devicesStore.devices : [];
   return endpoints.value.filter(d => !d.parent_device_id || !allDevices.some(p => p.device_id === d.parent_device_id));
 });
 
-function getNodeColor(status?: string, isMaint?: boolean): { border: string; bg: string; dot: string; text: string } {
+// Icon mapping: Router for core router, ArrowLeftRight for switches, Monitor for PC, Server for server
+function getDeviceIcon(typeId?: number) {
+  switch (typeId) {
+    case 1:
+      return Router;
+    case 2:
+    case 3:
+      return ArrowLeftRight;
+    case 4:
+      return Server;
+    case 5:
+    default:
+      return Monitor;
+  }
+}
+
+function getDeviceTypeName(typeId?: number): string {
+  switch (typeId) {
+    case 1: return 'Core Router';
+    case 2: return 'Distribution Switch';
+    case 3: return 'Access Switch';
+    case 4: return 'Server';
+    case 5: default: return 'Workstation PC';
+  }
+}
+
+function isReachable(status?: string | null): boolean {
+  if (!status) return false;
+  const s = status.toUpperCase();
+  return s === 'REACHABLE' || s === 'ONLINE';
+}
+
+function getNodeStatusColor(status?: string | null, isMaint?: boolean) {
   if (isMaint) {
     return {
-      border: 'border-purple-500',
-      bg: 'bg-purple-950/70',
+      icon: 'text-purple-400',
+      bg: 'bg-purple-500/10 hover:bg-purple-500/20',
+      border: 'border-purple-500/40 hover:border-purple-400',
+      glow: 'shadow-[0_0_12px_rgba(168,85,247,0.2)]',
       dot: 'bg-purple-400',
-      text: 'text-purple-300'
+      badgeText: 'MAINTENANCE',
+      badgeClass: 'bg-purple-950/60 border-purple-500/40 text-purple-300'
     };
   }
-  switch (status) {
-    case 'REACHABLE':
-      return {
-        border: 'border-emerald-500',
-        bg: 'bg-emerald-950/70',
-        dot: 'bg-emerald-400 animate-pulse',
-        text: 'text-emerald-300'
-      };
-    case 'UNREACHABLE':
-      return {
-        border: 'border-rose-500',
-        bg: 'bg-rose-950/80',
-        dot: 'bg-rose-500 animate-ping',
-        text: 'text-rose-300'
-      };
-    case 'SUPPRESSED':
-      return {
-        border: 'border-amber-500',
-        bg: 'bg-amber-950/70',
-        dot: 'bg-amber-400',
-        text: 'text-amber-300'
-      };
-    default:
-      return {
-        border: 'border-slate-700',
-        bg: 'bg-slate-900/80',
-        dot: 'bg-slate-500',
-        text: 'text-slate-400'
-      };
+
+  if (isReachable(status)) {
+    return {
+      icon: 'text-emerald-400',
+      bg: 'bg-emerald-500/10 hover:bg-emerald-500/20',
+      border: 'border-emerald-500/50 hover:border-emerald-400',
+      glow: 'shadow-[0_0_14px_rgba(16,185,129,0.25)]',
+      dot: 'bg-emerald-400',
+      badgeText: 'ONLINE',
+      badgeClass: 'bg-emerald-950/60 border-emerald-500/40 text-emerald-300'
+    };
+  } else {
+    return {
+      icon: 'text-rose-400',
+      bg: 'bg-rose-500/10 hover:bg-rose-500/20',
+      border: 'border-rose-500/50 hover:border-rose-400',
+      glow: 'shadow-[0_0_14px_rgba(244,63,94,0.25)]',
+      dot: 'bg-rose-500',
+      badgeText: 'OFFLINE',
+      badgeClass: 'bg-rose-950/60 border-rose-500/40 text-rose-300'
+    };
   }
 }
 </script>
 
 <template>
-  <div class="h-full flex flex-col relative select-none overflow-hidden bg-[#050811] bg-tactical-grid rounded-xl border border-tactical-border">
+  <div class="h-full flex flex-col relative select-none overflow-hidden bg-zinc-950 bg-tactical-grid rounded-xl border border-zinc-800 shadow-sm">
     
-    <!-- Top Canvas HUD Controls -->
-    <div class="absolute top-4 left-4 z-20 flex items-center space-x-3 bg-tactical-surface/90 border border-tactical-border backdrop-blur-md px-3.5 py-2 rounded-lg text-xs font-mono">
-      <div class="flex items-center space-x-2 border-r border-tactical-border/70 pr-3">
-        <Network class="w-4 h-4 text-tactical-cyan" />
-        <span class="text-slate-200 font-bold uppercase tracking-wider text-[11px]">Campus Lab Topology</span>
+    <!-- Top Canvas Status Legend -->
+    <div class="absolute top-4 left-4 z-20 flex items-center gap-3 bg-zinc-900/90 border border-zinc-800 backdrop-blur-md px-3 py-1.5 rounded-lg text-xs font-sans shadow-md">
+      <div class="flex items-center gap-2 border-r border-zinc-800 pr-3">
+        <Network class="w-3.5 h-3.5 text-zinc-300" />
+        <span class="text-zinc-200 font-medium text-xs">Topology</span>
       </div>
 
-      <div class="flex items-center space-x-2 text-[10px] text-slate-400">
-        <span class="flex items-center gap-1">
-          <span class="w-2 h-2 rounded-full bg-emerald-400"></span> Up
+      <div class="flex items-center gap-3 text-xs text-zinc-400">
+        <span class="flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-emerald-400"></span> Reachable
         </span>
-        <span class="flex items-center gap-1">
-          <span class="w-2 h-2 rounded-full bg-rose-500"></span> Down
+        <span class="flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-rose-500"></span> Unreachable
         </span>
-        <span class="flex items-center gap-1">
-          <span class="w-2 h-2 rounded-full bg-amber-400"></span> Suppressed
-        </span>
-        <span class="flex items-center gap-1">
+        <span class="flex items-center gap-1.5">
           <span class="w-2 h-2 rounded-full bg-purple-400"></span> Maint
         </span>
       </div>
     </div>
 
     <!-- Zoom & Pan Toolbar -->
-    <div class="absolute bottom-4 right-4 z-20 flex items-center space-x-1.5 bg-tactical-surface/90 border border-tactical-border backdrop-blur-md p-1.5 rounded-lg text-xs font-mono shadow-xl">
+    <div class="absolute bottom-4 right-4 z-20 flex items-center gap-1 bg-zinc-900/90 border border-zinc-800 backdrop-blur-md p-1 rounded-lg text-xs shadow-lg">
       <button 
         @click="zoomIn"
-        class="p-2 rounded bg-tactical-panel hover:bg-slate-800 text-slate-300 hover:text-tactical-cyan transition"
+        class="p-1.5 rounded hover:bg-zinc-800 text-zinc-300 hover:text-zinc-100 transition"
         title="Zoom In"
       >
         <ZoomIn class="w-4 h-4" />
@@ -188,19 +205,19 @@ function getNodeColor(status?: string, isMaint?: boolean): { border: string; bg:
 
       <button 
         @click="zoomOut"
-        class="p-2 rounded bg-tactical-panel hover:bg-slate-800 text-slate-300 hover:text-tactical-cyan transition"
+        class="p-1.5 rounded hover:bg-zinc-800 text-zinc-300 hover:text-zinc-100 transition"
         title="Zoom Out"
       >
         <ZoomOut class="w-4 h-4" />
       </button>
 
-      <div class="px-2 text-[11px] text-slate-400 font-mono">
+      <div class="px-2 text-[11px] text-zinc-400 font-mono">
         {{ Math.round(scale * 100) }}%
       </div>
 
       <button 
         @click="resetView"
-        class="p-2 rounded bg-tactical-panel hover:bg-slate-800 text-slate-300 hover:text-tactical-cyan transition"
+        class="p-1.5 rounded hover:bg-zinc-800 text-zinc-300 hover:text-zinc-100 transition"
         title="Reset Fit"
       >
         <RotateCcw class="w-4 h-4" />
@@ -222,239 +239,445 @@ function getNodeColor(status?: string, isMaint?: boolean): { border: string; bg:
           transform: `translate(${panX}px, ${panY}px) scale(${scale})`
         }"
       >
-        <div class="p-10 inline-flex flex-col space-y-12">
+        <div class="p-10 inline-flex flex-col space-y-10 items-center min-w-full">
           
           <!-- Layer 0: Core Backbone Gateway / Routers -->
           <div class="flex flex-col items-center">
-            <div class="text-[10px] font-mono tracking-widest text-tactical-cyan uppercase mb-3 flex items-center gap-2">
-              <span class="w-2 h-0.5 bg-tactical-cyan"></span>
-              <span>Campus Core Gateway & Backbone</span>
-              <span class="w-2 h-0.5 bg-tactical-cyan"></span>
+            <div class="text-[11px] font-medium text-zinc-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+              <span class="w-3 h-px bg-zinc-700"></span>
+              <span>Core Gateway</span>
+              <span class="w-3 h-px bg-zinc-700"></span>
             </div>
 
-            <div class="flex items-center space-x-8">
+            <div class="flex items-center space-x-12">
               <div 
                 v-for="router in coreRouters"
                 :key="router.device_id"
+                class="relative group cursor-pointer flex flex-col items-center"
                 @click.stop="emit('inspect', router.device_id)"
-                class="w-64 p-3 rounded-lg border-2 cursor-pointer shadow-xl transition-all duration-200 hover:scale-105"
-                :class="[
-                  getNodeColor(router.reachability_status, router.is_in_maintenance).border,
-                  getNodeColor(router.reachability_status, router.is_in_maintenance).bg
-                ]"
               >
-                <div class="flex items-center justify-between mb-1.5">
-                  <div class="flex items-center space-x-1.5">
-                    <Radio class="w-4 h-4 text-tactical-cyan" />
-                    <span class="font-bold text-slate-100 truncate text-xs">{{ router.display_name }}</span>
-                  </div>
-                  <span class="w-2 h-2 rounded-full" :class="getNodeColor(router.reachability_status, router.is_in_maintenance).dot"></span>
+                <!-- Icon Circle -->
+                <div 
+                  class="w-13 h-13 p-3 rounded-2xl flex items-center justify-center border-2 transition-all duration-200 group-hover:scale-110 shadow-lg relative backdrop-blur-sm"
+                  :class="[
+                    getNodeStatusColor(router.reachability_status, router.is_in_maintenance).border,
+                    getNodeStatusColor(router.reachability_status, router.is_in_maintenance).bg,
+                    getNodeStatusColor(router.reachability_status, router.is_in_maintenance).glow
+                  ]"
+                >
+                  <component 
+                    :is="getDeviceIcon(router.type_id)" 
+                    class="w-7 h-7 transition-colors"
+                    :class="getNodeStatusColor(router.reachability_status, router.is_in_maintenance).icon"
+                  />
+                  <span 
+                    class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border border-zinc-950"
+                    :class="getNodeStatusColor(router.reachability_status, router.is_in_maintenance).dot"
+                  ></span>
                 </div>
-                <div class="text-[10px] font-mono text-slate-300 flex justify-between">
-                  <span>{{ router.primary_ip }}</span>
-                  <span class="text-slate-400">{{ router.zone || 'Core NOC' }}</span>
+
+                <!-- Only Device Name on Canvas -->
+                <span class="text-xs font-medium text-zinc-200 group-hover:text-zinc-100 truncate max-w-[130px] text-center mt-2 transition tracking-tight">
+                  {{ router.display_name }}
+                </span>
+
+                <!-- Hover Card (shows IP & Status Badge) -->
+                <div 
+                  class="opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-150 absolute bottom-full mb-2 z-50 w-48 p-2.5 rounded-lg bg-zinc-900 border border-zinc-700 shadow-2xl backdrop-blur-md text-left font-sans"
+                >
+                  <div class="flex items-center justify-between gap-1 pb-1.5 border-b border-zinc-800">
+                    <span class="font-semibold text-xs text-zinc-100 truncate">{{ router.display_name }}</span>
+                    <span 
+                      class="px-1.5 py-0.5 rounded text-[10px] font-semibold border font-mono"
+                      :class="getNodeStatusColor(router.reachability_status, router.is_in_maintenance).badgeClass"
+                    >
+                      {{ getNodeStatusColor(router.reachability_status, router.is_in_maintenance).badgeText }}
+                    </span>
+                  </div>
+
+                  <div class="pt-1.5 space-y-1 text-[11px]">
+                    <div class="flex items-center justify-between">
+                      <span class="text-zinc-400">IP</span>
+                      <span class="font-mono text-zinc-200 font-medium">{{ router.primary_ip }}</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                      <span class="text-zinc-400">Type</span>
+                      <span class="text-zinc-300">Core Router</span>
+                    </div>
+                    <div v-if="router.zone" class="flex items-center justify-between">
+                      <span class="text-zinc-400">Zone</span>
+                      <span class="text-zinc-300 truncate max-w-[90px]">{{ router.zone }}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <!-- Fallback if no core router created yet -->
+              <!-- Fallback if no core router -->
               <div 
                 v-if="coreRouters.length === 0"
-                class="w-64 p-3 rounded-lg border border-dashed border-tactical-border/80 bg-tactical-panel/40 text-center"
+                class="px-4 py-2 rounded-lg border border-dashed border-zinc-800 text-center"
               >
-                <span class="text-[10px] font-mono text-slate-500">No Core Router provisioned</span>
+                <span class="text-xs text-zinc-400">No Core Router provisioned</span>
               </div>
             </div>
           </div>
 
-          <!-- Vertical Cable Connector Line -->
-          <div class="w-0.5 h-8 bg-tactical-cyan/40 mx-auto"></div>
+          <!-- Vertical Connector Line -->
+          <div class="w-px h-8 bg-zinc-700"></div>
 
           <!-- Layer 1: Distribution / Aggregate Switches -->
           <div class="flex flex-col items-center">
-            <div class="text-[10px] font-mono tracking-widest text-slate-400 uppercase mb-3 flex items-center gap-2">
-              <span class="w-2 h-0.5 bg-slate-500"></span>
-              <span>Distribution / Building Aggregate Layer</span>
-              <span class="w-2 h-0.5 bg-slate-500"></span>
+            <div class="text-[11px] font-medium text-zinc-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+              <span class="w-3 h-px bg-zinc-700"></span>
+              <span>Distribution Switches</span>
+              <span class="w-3 h-px bg-zinc-700"></span>
             </div>
 
-            <div class="flex items-center space-x-8">
+            <div class="flex items-center space-x-12">
               <div 
                 v-for="sw in aggSwitches"
                 :key="sw.device_id"
+                class="relative group cursor-pointer flex flex-col items-center"
                 @click.stop="emit('inspect', sw.device_id)"
-                class="w-60 p-3 rounded-lg border-2 cursor-pointer shadow-xl transition-all duration-200 hover:scale-105"
-                :class="[
-                  getNodeColor(sw.reachability_status, sw.is_in_maintenance).border,
-                  getNodeColor(sw.reachability_status, sw.is_in_maintenance).bg
-                ]"
               >
-                <div class="flex items-center justify-between mb-1">
-                  <div class="flex items-center space-x-1.5">
-                    <Layers class="w-4 h-4 text-tactical-amber" />
-                    <span class="font-bold text-slate-100 truncate text-xs">{{ sw.display_name }}</span>
-                  </div>
-                  <span class="w-2 h-2 rounded-full" :class="getNodeColor(sw.reachability_status, sw.is_in_maintenance).dot"></span>
+                <!-- Switch Icon (ArrowLeftRight) -->
+                <div 
+                  class="w-12 h-12 p-2.5 rounded-xl flex items-center justify-center border-2 transition-all duration-200 group-hover:scale-110 shadow-lg relative backdrop-blur-sm"
+                  :class="[
+                    getNodeStatusColor(sw.reachability_status, sw.is_in_maintenance).border,
+                    getNodeStatusColor(sw.reachability_status, sw.is_in_maintenance).bg,
+                    getNodeStatusColor(sw.reachability_status, sw.is_in_maintenance).glow
+                  ]"
+                >
+                  <ArrowLeftRight 
+                    class="w-6 h-6 transition-colors"
+                    :class="getNodeStatusColor(sw.reachability_status, sw.is_in_maintenance).icon"
+                  />
+                  <span 
+                    class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border border-zinc-950"
+                    :class="getNodeStatusColor(sw.reachability_status, sw.is_in_maintenance).dot"
+                  ></span>
                 </div>
-                <div class="text-[10px] font-mono text-slate-300 flex justify-between">
-                  <span>{{ sw.primary_ip }}</span>
-                  <span class="text-slate-400">{{ sw.zone || 'Distribution Rack' }}</span>
+
+                <!-- Only Device Name on Canvas -->
+                <span class="text-xs font-medium text-zinc-200 group-hover:text-zinc-100 truncate max-w-[120px] text-center mt-2 transition tracking-tight">
+                  {{ sw.display_name }}
+                </span>
+
+                <!-- Hover Card (shows IP & Status Badge) -->
+                <div 
+                  class="opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-150 absolute bottom-full mb-2 z-50 w-48 p-2.5 rounded-lg bg-zinc-900 border border-zinc-700 shadow-2xl backdrop-blur-md text-left font-sans"
+                >
+                  <div class="flex items-center justify-between gap-1 pb-1.5 border-b border-zinc-800">
+                    <span class="font-semibold text-xs text-zinc-100 truncate">{{ sw.display_name }}</span>
+                    <span 
+                      class="px-1.5 py-0.5 rounded text-[10px] font-semibold border font-mono"
+                      :class="getNodeStatusColor(sw.reachability_status, sw.is_in_maintenance).badgeClass"
+                    >
+                      {{ getNodeStatusColor(sw.reachability_status, sw.is_in_maintenance).badgeText }}
+                    </span>
+                  </div>
+
+                  <div class="pt-1.5 space-y-1 text-[11px]">
+                    <div class="flex items-center justify-between">
+                      <span class="text-zinc-400">IP</span>
+                      <span class="font-mono text-zinc-200 font-medium">{{ sw.primary_ip }}</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                      <span class="text-zinc-400">Type</span>
+                      <span class="text-zinc-300">Distribution Switch</span>
+                    </div>
+                    <div v-if="sw.zone" class="flex items-center justify-between">
+                      <span class="text-zinc-400">Rack</span>
+                      <span class="text-zinc-300 truncate max-w-[90px]">{{ sw.zone }}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
               <div 
                 v-if="aggSwitches.length === 0"
-                class="w-60 p-3 rounded-lg border border-dashed border-tactical-border/80 bg-tactical-panel/40 text-center"
+                class="px-4 py-2 rounded-lg border border-dashed border-zinc-800 text-center"
               >
-                <span class="text-[10px] font-mono text-slate-500">No Distribution Switch provisioned</span>
+                <span class="text-xs text-zinc-400">No Distribution Switch provisioned</span>
               </div>
             </div>
           </div>
 
-          <!-- Vertical Cable Connector Line -->
-          <div class="w-0.5 h-8 bg-tactical-border mx-auto"></div>
+          <!-- Vertical Connector Line -->
+          <div class="w-px h-8 bg-zinc-700"></div>
 
-          <!-- Layer 2 & 3: Lab Access Switches + 2-Branch Parallel Endpoint Columns -->
-          <div class="flex flex-col items-center">
-            <div class="text-[10px] font-mono tracking-widest text-slate-400 uppercase mb-4 flex items-center gap-2">
-              <span class="w-2 h-0.5 bg-slate-500"></span>
-              <span>Lab Access Switches & 2-Branch Parallel Workstation Pods</span>
-              <span class="w-2 h-0.5 bg-slate-500"></span>
+          <!-- Layer 2 & 3: Lab Access Switches + Connected Workstations -->
+          <div class="flex flex-col items-center w-full">
+            <div class="text-[11px] font-medium text-zinc-400 uppercase tracking-wider mb-6 flex items-center gap-2">
+              <span class="w-3 h-px bg-zinc-700"></span>
+              <span>Lab Switches & Workstations</span>
+              <span class="w-3 h-px bg-zinc-700"></span>
             </div>
 
-            <!-- Horizontal Container for all Access Switches -->
-            <div class="flex items-start space-x-12">
+            <!-- Horizontal Container for Access Switches -->
+            <div class="flex items-start justify-center flex-wrap gap-12 w-full">
               
               <div 
                 v-for="accSw in accessSwitches"
                 :key="accSw.device_id"
                 class="flex flex-col items-center"
               >
-                <!-- Access Switch Node Card -->
+                <!-- Access Switch Node (ArrowLeftRight) -->
                 <div 
+                  class="relative group cursor-pointer flex flex-col items-center"
                   @click.stop="emit('inspect', accSw.device_id)"
-                  class="w-56 p-3 rounded-lg border-2 cursor-pointer shadow-xl transition-all duration-200 hover:scale-105 z-10"
-                  :class="[
-                    getNodeColor(accSw.reachability_status, accSw.is_in_maintenance).border,
-                    getNodeColor(accSw.reachability_status, accSw.is_in_maintenance).bg
-                  ]"
                 >
-                  <div class="flex items-center justify-between mb-1">
-                    <div class="flex items-center space-x-1.5">
-                      <Server class="w-3.5 h-3.5 text-tactical-cyan" />
-                      <span class="font-bold text-slate-100 truncate text-xs">{{ accSw.display_name }}</span>
-                    </div>
-                    <span class="w-2 h-2 rounded-full" :class="getNodeColor(accSw.reachability_status, accSw.is_in_maintenance).dot"></span>
+                  <div 
+                    class="w-12 h-12 p-2.5 rounded-xl flex items-center justify-center border-2 transition-all duration-200 group-hover:scale-110 shadow-lg relative backdrop-blur-sm"
+                    :class="[
+                      getNodeStatusColor(accSw.reachability_status, accSw.is_in_maintenance).border,
+                      getNodeStatusColor(accSw.reachability_status, accSw.is_in_maintenance).bg,
+                      getNodeStatusColor(accSw.reachability_status, accSw.is_in_maintenance).glow
+                    ]"
+                  >
+                    <ArrowLeftRight 
+                      class="w-6 h-6 transition-colors"
+                      :class="getNodeStatusColor(accSw.reachability_status, accSw.is_in_maintenance).icon"
+                    />
+                    <span 
+                      class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border border-zinc-950"
+                      :class="getNodeStatusColor(accSw.reachability_status, accSw.is_in_maintenance).dot"
+                    ></span>
                   </div>
-                  <div class="text-[10px] font-mono text-slate-300 flex justify-between">
-                    <span>{{ accSw.primary_ip }}</span>
-                    <span class="text-slate-400">{{ accSw.zone || 'Lab Switch' }}</span>
+
+                  <!-- Only Name below icon -->
+                  <span class="text-xs font-medium text-zinc-200 group-hover:text-zinc-100 truncate max-w-[120px] text-center mt-2 transition tracking-tight">
+                    {{ accSw.display_name }}
+                  </span>
+
+                  <!-- Hover Card (shows IP & Status Badge) -->
+                  <div 
+                    class="opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-150 absolute bottom-full mb-2 z-50 w-48 p-2.5 rounded-lg bg-zinc-900 border border-zinc-700 shadow-2xl backdrop-blur-md text-left font-sans"
+                  >
+                    <div class="flex items-center justify-between gap-1 pb-1.5 border-b border-zinc-800">
+                      <span class="font-semibold text-xs text-zinc-100 truncate">{{ accSw.display_name }}</span>
+                      <span 
+                        class="px-1.5 py-0.5 rounded text-[10px] font-semibold border font-mono"
+                        :class="getNodeStatusColor(accSw.reachability_status, accSw.is_in_maintenance).badgeClass"
+                      >
+                        {{ getNodeStatusColor(accSw.reachability_status, accSw.is_in_maintenance).badgeText }}
+                      </span>
+                    </div>
+
+                    <div class="pt-1.5 space-y-1 text-[11px]">
+                      <div class="flex items-center justify-between">
+                        <span class="text-zinc-400">IP</span>
+                        <span class="font-mono text-zinc-200 font-medium">{{ accSw.primary_ip }}</span>
+                      </div>
+                      <div class="flex items-center justify-between">
+                        <span class="text-zinc-400">Type</span>
+                        <span class="text-zinc-300">Access Switch</span>
+                      </div>
+                      <div v-if="accSw.zone" class="flex items-center justify-between">
+                        <span class="text-zinc-400">Lab</span>
+                        <span class="text-zinc-300 truncate max-w-[90px]">{{ accSw.zone }}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                <!-- Vertical Downlink Cable -->
-                <div class="w-0.5 h-6 bg-tactical-border"></div>
+                <!-- Downlink Cable Connector -->
+                <div class="w-px h-6 bg-zinc-700 mt-2"></div>
+                <div class="w-36 h-2 border-t border-l border-r border-zinc-700 rounded-t"></div>
 
-                <!-- 2-Branch Parallel Splitter Cable -->
-                <div class="w-48 h-3 border-t-2 border-l-2 border-r-2 border-tactical-border/70 rounded-t"></div>
-
-                <!-- 2 Parallel Columns of Endpoints (Computer Row A / Computer Row B) -->
+                <!-- Parallel Columns of Workstations & Servers -->
                 <div class="flex items-start space-x-6">
                   
-                  <!-- Left Column (Row 1) -->
-                  <div class="flex flex-col space-y-2.5 w-44">
+                  <!-- Left Workstation Branch -->
+                  <div class="flex flex-col space-y-3 items-center w-20">
                     <div 
                       v-for="ep in getChildrenForSwitch(accSw.device_id).leftBranch"
                       :key="ep.device_id"
+                      class="relative group cursor-pointer flex flex-col items-center"
                       @click.stop="emit('inspect', ep.device_id)"
-                      class="p-2 rounded border cursor-pointer transition hover:scale-102 shadow"
-                      :class="[
-                        getNodeColor(ep.reachability_status, ep.is_in_maintenance).border,
-                        getNodeColor(ep.reachability_status, ep.is_in_maintenance).bg
-                      ]"
                     >
-                      <div class="flex items-center justify-between">
-                        <div class="flex items-center space-x-1.5 truncate">
-                          <Monitor v-if="ep.type_id === 5" class="w-3 h-3 text-slate-300 flex-shrink-0" />
-                          <Server v-else class="w-3 h-3 text-tactical-amber flex-shrink-0" />
-                          <span class="text-[10px] font-bold text-slate-200 truncate">{{ ep.display_name }}</span>
-                        </div>
-                        <span class="w-1.5 h-1.5 rounded-full" :class="getNodeColor(ep.reachability_status, ep.is_in_maintenance).dot"></span>
+                      <div 
+                        class="w-10 h-10 rounded-lg flex items-center justify-center border-2 transition-all duration-200 group-hover:scale-110 shadow relative"
+                        :class="[
+                          getNodeStatusColor(ep.reachability_status, ep.is_in_maintenance).border,
+                          getNodeStatusColor(ep.reachability_status, ep.is_in_maintenance).bg,
+                          getNodeStatusColor(ep.reachability_status, ep.is_in_maintenance).glow
+                        ]"
+                      >
+                        <component 
+                          :is="getDeviceIcon(ep.type_id)" 
+                          class="w-5 h-5 transition-colors"
+                          :class="getNodeStatusColor(ep.reachability_status, ep.is_in_maintenance).icon"
+                        />
+                        <span 
+                          class="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full border border-zinc-950"
+                          :class="getNodeStatusColor(ep.reachability_status, ep.is_in_maintenance).dot"
+                        ></span>
                       </div>
-                      <div class="text-[9px] text-slate-400 flex justify-between mt-0.5">
-                        <span>{{ ep.primary_ip }}</span>
-                        <span v-if="ep.latest_latency_us !== null && ep.latest_latency_us !== undefined" class="text-tactical-cyan">
-                          {{ ep.latest_latency_us < 1000 ? `${ep.latest_latency_us}µs` : `${(ep.latest_latency_us/1000).toFixed(1)}ms` }}
-                        </span>
-                      </div>
-                    </div>
 
-                    <div 
-                      v-if="getChildrenForSwitch(accSw.device_id).leftBranch.length === 0"
-                      class="p-2 rounded border border-dashed border-tactical-border/50 text-center"
-                    >
-                      <span class="text-[9px] text-slate-600">No endpoints</span>
+                      <!-- Only Name below icon -->
+                      <span class="text-[10px] font-medium text-zinc-300 group-hover:text-zinc-100 truncate max-w-[80px] text-center mt-1 transition">
+                        {{ ep.display_name }}
+                      </span>
+
+                      <!-- Hover Card (shows IP & Status Badge) -->
+                      <div 
+                        class="opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-150 absolute bottom-full mb-2 z-50 w-44 p-2 rounded-lg bg-zinc-900 border border-zinc-700 shadow-2xl backdrop-blur-md text-left font-sans"
+                      >
+                        <div class="flex items-center justify-between gap-1 pb-1 border-b border-zinc-800">
+                          <span class="font-semibold text-[11px] text-zinc-100 truncate">{{ ep.display_name }}</span>
+                          <span 
+                            class="px-1.5 py-0.2 rounded text-[9px] font-semibold border font-mono"
+                            :class="getNodeStatusColor(ep.reachability_status, ep.is_in_maintenance).badgeClass"
+                          >
+                            {{ getNodeStatusColor(ep.reachability_status, ep.is_in_maintenance).badgeText }}
+                          </span>
+                        </div>
+
+                        <div class="pt-1 space-y-0.5 text-[10px]">
+                          <div class="flex items-center justify-between">
+                            <span class="text-zinc-400">IP</span>
+                            <span class="font-mono text-zinc-200">{{ ep.primary_ip }}</span>
+                          </div>
+                          <div class="flex items-center justify-between">
+                            <span class="text-zinc-400">Type</span>
+                            <span class="text-zinc-300">{{ getDeviceTypeName(ep.type_id) }}</span>
+                          </div>
+                          <div v-if="ep.latest_latency_us !== null && ep.latest_latency_us !== undefined" class="flex items-center justify-between">
+                            <span class="text-zinc-400">RTT</span>
+                            <span class="font-mono text-emerald-400">
+                              {{ ep.latest_latency_us < 1000 ? `${ep.latest_latency_us}µs` : `${(ep.latest_latency_us/1000).toFixed(1)}ms` }}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
-                  <!-- Right Column (Row 2) -->
-                  <div class="flex flex-col space-y-2.5 w-44">
+                  <!-- Right Workstation Branch -->
+                  <div class="flex flex-col space-y-3 items-center w-20">
                     <div 
                       v-for="ep in getChildrenForSwitch(accSw.device_id).rightBranch"
                       :key="ep.device_id"
+                      class="relative group cursor-pointer flex flex-col items-center"
                       @click.stop="emit('inspect', ep.device_id)"
-                      class="p-2 rounded border cursor-pointer transition hover:scale-102 shadow"
-                      :class="[
-                        getNodeColor(ep.reachability_status, ep.is_in_maintenance).border,
-                        getNodeColor(ep.reachability_status, ep.is_in_maintenance).bg
-                      ]"
                     >
-                      <div class="flex items-center justify-between">
-                        <div class="flex items-center space-x-1.5 truncate">
-                          <Monitor v-if="ep.type_id === 5" class="w-3 h-3 text-slate-300 flex-shrink-0" />
-                          <Server v-else class="w-3 h-3 text-tactical-amber flex-shrink-0" />
-                          <span class="text-[10px] font-bold text-slate-200 truncate">{{ ep.display_name }}</span>
-                        </div>
-                        <span class="w-1.5 h-1.5 rounded-full" :class="getNodeColor(ep.reachability_status, ep.is_in_maintenance).dot"></span>
+                      <div 
+                        class="w-10 h-10 rounded-lg flex items-center justify-center border-2 transition-all duration-200 group-hover:scale-110 shadow relative"
+                        :class="[
+                          getNodeStatusColor(ep.reachability_status, ep.is_in_maintenance).border,
+                          getNodeStatusColor(ep.reachability_status, ep.is_in_maintenance).bg,
+                          getNodeStatusColor(ep.reachability_status, ep.is_in_maintenance).glow
+                        ]"
+                      >
+                        <component 
+                          :is="getDeviceIcon(ep.type_id)" 
+                          class="w-5 h-5 transition-colors"
+                          :class="getNodeStatusColor(ep.reachability_status, ep.is_in_maintenance).icon"
+                        />
+                        <span 
+                          class="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full border border-zinc-950"
+                          :class="getNodeStatusColor(ep.reachability_status, ep.is_in_maintenance).dot"
+                        ></span>
                       </div>
-                      <div class="text-[9px] text-slate-400 flex justify-between mt-0.5">
-                        <span>{{ ep.primary_ip }}</span>
-                        <span v-if="ep.latest_latency_us !== null && ep.latest_latency_us !== undefined" class="text-tactical-cyan">
-                          {{ ep.latest_latency_us < 1000 ? `${ep.latest_latency_us}µs` : `${(ep.latest_latency_us/1000).toFixed(1)}ms` }}
-                        </span>
-                      </div>
-                    </div>
 
-                    <div 
-                      v-if="getChildrenForSwitch(accSw.device_id).rightBranch.length === 0"
-                      class="p-2 rounded border border-dashed border-tactical-border/50 text-center"
-                    >
-                      <span class="text-[9px] text-slate-600">No endpoints</span>
+                      <!-- Only Name below icon -->
+                      <span class="text-[10px] font-medium text-zinc-300 group-hover:text-zinc-100 truncate max-w-[80px] text-center mt-1 transition">
+                        {{ ep.display_name }}
+                      </span>
+
+                      <!-- Hover Card (shows IP & Status Badge) -->
+                      <div 
+                        class="opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-150 absolute bottom-full mb-2 z-50 w-44 p-2 rounded-lg bg-zinc-900 border border-zinc-700 shadow-2xl backdrop-blur-md text-left font-sans"
+                      >
+                        <div class="flex items-center justify-between gap-1 pb-1 border-b border-zinc-800">
+                          <span class="font-semibold text-[11px] text-zinc-100 truncate">{{ ep.display_name }}</span>
+                          <span 
+                            class="px-1.5 py-0.2 rounded text-[9px] font-semibold border font-mono"
+                            :class="getNodeStatusColor(ep.reachability_status, ep.is_in_maintenance).badgeClass"
+                          >
+                            {{ getNodeStatusColor(ep.reachability_status, ep.is_in_maintenance).badgeText }}
+                          </span>
+                        </div>
+
+                        <div class="pt-1 space-y-0.5 text-[10px]">
+                          <div class="flex items-center justify-between">
+                            <span class="text-zinc-400">IP</span>
+                            <span class="font-mono text-zinc-200">{{ ep.primary_ip }}</span>
+                          </div>
+                          <div class="flex items-center justify-between">
+                            <span class="text-zinc-400">Type</span>
+                            <span class="text-zinc-300">{{ getDeviceTypeName(ep.type_id) }}</span>
+                          </div>
+                          <div v-if="ep.latest_latency_us !== null && ep.latest_latency_us !== undefined" class="flex items-center justify-between">
+                            <span class="text-zinc-400">RTT</span>
+                            <span class="font-mono text-emerald-400">
+                              {{ ep.latest_latency_us < 1000 ? `${ep.latest_latency_us}µs` : `${(ep.latest_latency_us/1000).toFixed(1)}ms` }}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
                 </div>
               </div>
 
-              <!-- Unassigned Endpoints Box (if any) -->
+              <!-- Unassigned Endpoints -->
               <div v-if="unparentedEndpoints.length > 0" class="flex flex-col items-center">
-                <div class="w-56 p-3 rounded-lg border border-dashed border-tactical-border bg-tactical-panel/40">
-                  <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 text-center">
-                    Direct / Root Endpoints
+                <div class="p-3 rounded-lg border border-dashed border-zinc-800 text-center">
+                  <div class="text-[10px] font-medium text-zinc-400 uppercase tracking-wider mb-2">
+                    Standalone Devices
                   </div>
-                  <div class="space-y-1.5">
+                  <div class="flex flex-wrap gap-3 justify-center max-w-xs">
                     <div 
                       v-for="ep in unparentedEndpoints"
                       :key="ep.device_id"
+                      class="relative group cursor-pointer flex flex-col items-center"
                       @click.stop="emit('inspect', ep.device_id)"
-                      class="p-2 rounded border cursor-pointer hover:border-tactical-cyan"
-                      :class="[
-                        getNodeColor(ep.reachability_status, ep.is_in_maintenance).border,
-                        getNodeColor(ep.reachability_status, ep.is_in_maintenance).bg
-                      ]"
                     >
-                      <div class="flex items-center justify-between text-[10px]">
-                        <span class="font-bold text-slate-200 truncate">{{ ep.display_name }}</span>
-                        <span class="text-slate-400">{{ ep.primary_ip }}</span>
+                      <div 
+                        class="w-10 h-10 rounded-lg flex items-center justify-center border-2 transition-all duration-200 group-hover:scale-110 shadow"
+                        :class="[
+                          getNodeStatusColor(ep.reachability_status, ep.is_in_maintenance).border,
+                          getNodeStatusColor(ep.reachability_status, ep.is_in_maintenance).bg,
+                          getNodeStatusColor(ep.reachability_status, ep.is_in_maintenance).glow
+                        ]"
+                      >
+                        <component 
+                          :is="getDeviceIcon(ep.type_id)" 
+                          class="w-5 h-5 transition-colors"
+                          :class="getNodeStatusColor(ep.reachability_status, ep.is_in_maintenance).icon"
+                        />
+                      </div>
+                      <span class="text-[10px] font-medium text-zinc-300 group-hover:text-zinc-100 truncate max-w-[80px] text-center mt-1">
+                        {{ ep.display_name }}
+                      </span>
+
+                      <!-- Hover Card -->
+                      <div 
+                        class="opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-150 absolute bottom-full mb-2 z-50 w-44 p-2 rounded-lg bg-zinc-900 border border-zinc-700 shadow-2xl backdrop-blur-md text-left font-sans"
+                      >
+                        <div class="flex items-center justify-between gap-1 pb-1 border-b border-zinc-800">
+                          <span class="font-semibold text-[11px] text-zinc-100 truncate">{{ ep.display_name }}</span>
+                          <span 
+                            class="px-1.5 py-0.2 rounded text-[9px] font-semibold border font-mono"
+                            :class="getNodeStatusColor(ep.reachability_status, ep.is_in_maintenance).badgeClass"
+                          >
+                            {{ getNodeStatusColor(ep.reachability_status, ep.is_in_maintenance).badgeText }}
+                          </span>
+                        </div>
+                        <div class="pt-1 space-y-0.5 text-[10px]">
+                          <div class="flex items-center justify-between">
+                            <span class="text-zinc-400">IP</span>
+                            <span class="font-mono text-zinc-200">{{ ep.primary_ip }}</span>
+                          </div>
+                          <div class="flex items-center justify-between">
+                            <span class="text-zinc-400">Type</span>
+                            <span class="text-zinc-300">{{ getDeviceTypeName(ep.type_id) }}</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -464,11 +687,11 @@ function getNodeColor(status?: string, isMaint?: boolean): { border: string; bg:
               <!-- Fallback if no devices yet -->
               <div 
                 v-if="accessSwitches.length === 0 && unparentedEndpoints.length === 0"
-                class="p-8 rounded-lg border border-dashed border-tactical-border/80 bg-tactical-panel/40 text-center"
+                class="p-6 rounded-lg border border-dashed border-zinc-800 text-center max-w-md"
               >
-                <Network class="w-8 h-8 text-tactical-cyan/40 mx-auto mb-2" />
-                <p class="text-xs font-mono text-slate-400">No Access Switches or Lab Endpoints configured yet</p>
-                <p class="text-[10px] font-mono text-slate-600 mt-1">Use the Device Inventory or Bulk Ingestion tab to add lab switches & workstations</p>
+                <Network class="w-6 h-6 text-zinc-400 mx-auto mb-2" />
+                <p class="text-xs text-zinc-300 font-medium">No Access Switches or Workstations Configured</p>
+                <p class="text-[11px] text-zinc-400 mt-0.5">Use the Device Inventory or Subnet Discovery tab to populate lab equipment.</p>
               </div>
 
             </div>
