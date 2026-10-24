@@ -33,16 +33,17 @@ const vendor = ref('');
 const model = ref('');
 const isMonitored = ref(true);
 
-const isEditMode = computed(() => !!props.deviceToEdit);
+const isEditMode = computed(() => !!props.deviceToEdit && Number(props.deviceToEdit.device_id) > 0);
 
 const flatGroups = computed(() => groupsStore.flattenGroups(groupsStore.groupsTree));
 
 // Potential parents (Core Routers and Switches)
 const candidateParents = computed(() => {
   const all = Array.isArray(devicesStore.devices) ? devicesStore.devices : [];
+  const currentId = props.deviceToEdit ? Number(props.deviceToEdit.device_id) : 0;
   return all.filter(d => 
     (d.type_id === 1 || d.type_id === 2 || d.type_id === 3) &&
-    (!props.deviceToEdit || d.device_id !== props.deviceToEdit.device_id)
+    (currentId <= 0 || d.device_id !== currentId)
   );
 });
 
@@ -99,7 +100,7 @@ async function handleSubmit() {
 
   isSubmitting.value = true;
   try {
-    if (isEditMode.value && props.deviceToEdit) {
+    if (isEditMode.value && props.deviceToEdit && Number(props.deviceToEdit.device_id) > 0) {
       const payload: UpdateDeviceRequest = {
         display_name: displayName.value.trim(),
         primary_ip: primaryIp.value.trim(),

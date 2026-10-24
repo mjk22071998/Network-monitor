@@ -104,7 +104,7 @@ function getNodeStatusColor(status?: string | null, isMaint?: boolean) {
     <!-- The Device Node -->
     <div 
       class="relative group cursor-pointer flex flex-col items-center"
-      @click.stop="emit('inspect', device.device_id)"
+      @click.stop="device && device.device_id > 0 && emit('inspect', device.device_id)"
     >
       <!-- Icon Box -->
       <div 
@@ -201,7 +201,7 @@ function getNodeStatusColor(status?: string | null, isMaint?: boolean) {
           <!-- Recursive Node -->
           <TopologyDeviceTreeNode 
             :device="child"
-            @inspect="(id) => emit('inspect', id)"
+            @inspect="(id) => id && id > 0 && emit('inspect', id)"
           />
         </div>
       </div>

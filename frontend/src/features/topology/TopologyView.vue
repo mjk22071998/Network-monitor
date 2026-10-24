@@ -412,7 +412,7 @@ function getNodeStatusColor(status?: string | null, isMaint?: boolean) {
                 v-for="router in coreRouters"
                 :key="router.device_id"
                 class="relative group cursor-pointer flex flex-col items-center"
-                @click.stop="emit('inspect', router.device_id)"
+                @click.stop="router.device_id && router.device_id > 0 && emit('inspect', router.device_id)"
               >
                 <!-- Icon Box -->
                 <div 
@@ -499,7 +499,7 @@ function getNodeStatusColor(status?: string | null, isMaint?: boolean) {
                 v-for="sw in aggSwitches"
                 :key="sw.device_id"
                 class="relative group cursor-pointer flex flex-col items-center"
-                @click.stop="emit('inspect', sw.device_id)"
+                @click.stop="sw.device_id && sw.device_id > 0 && emit('inspect', sw.device_id)"
               >
                 <!-- Switch Icon (ArrowLeftRight) -->
                 <div 
@@ -628,7 +628,7 @@ function getNodeStatusColor(status?: string | null, isMaint?: boolean) {
                     v-for="pc in getDevicesForGroup(group.group_id)"
                     :key="pc.device_id"
                     class="relative group cursor-pointer flex flex-col items-center"
-                    @click.stop="emit('inspect', pc.device_id)"
+                    @click.stop="pc.device_id && pc.device_id > 0 && emit('inspect', pc.device_id)"
                   >
                     <!-- PC Drop Cable -->
                     <div class="w-0.5 h-2 bg-zinc-700 -mt-3 mb-1"></div>
@@ -727,7 +727,7 @@ function getNodeStatusColor(status?: string | null, isMaint?: boolean) {
               v-for="rootDev in rootDevices"
               :key="rootDev.device_id"
               :device="rootDev"
-              @inspect="(id) => emit('inspect', id)"
+              @inspect="(id) => id && id > 0 && emit('inspect', id)"
             />
           </div>
 

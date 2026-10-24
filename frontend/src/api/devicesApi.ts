@@ -58,8 +58,13 @@ export const devicesApi = {
     return rawList.map(normalizeDevice);
   },
 
-  async getById(id: number): Promise<DeviceDetail> {
-    const res = await apiClient.get<any>(`/devices/${id}`);
+  async getById(id: number | string): Promise<DeviceDetail> {
+    const numId = Number(id);
+    if (!numId || numId <= 0 || isNaN(numId)) {
+      console.warn(`[devicesApi] Suppressed invalid getById call for non-positive ID: ${id}`);
+      return null as any;
+    }
+    const res = await apiClient.get<any>(`/devices/${numId}`);
     return normalizeDeviceDetail(res.data);
   },
 
@@ -68,17 +73,29 @@ export const devicesApi = {
     return normalizeDevice(res.data);
   },
 
-  async update(id: number, payload: UpdateDeviceRequest): Promise<Device> {
-    const res = await apiClient.put<any>(`/devices/${id}`, payload);
+  async update(id: number | string, payload: UpdateDeviceRequest): Promise<Device> {
+    const numId = Number(id);
+    if (!numId || numId <= 0 || isNaN(numId)) {
+      throw new Error(`[devicesApi] Cannot update device with invalid ID: ${id}`);
+    }
+    const res = await apiClient.put<any>(`/devices/${numId}`, payload);
     return normalizeDevice(res.data);
   },
 
-  async delete(id: number): Promise<void> {
-    await apiClient.delete(`/devices/${id}`);
+  async delete(id: number | string): Promise<void> {
+    const numId = Number(id);
+    if (!numId || numId <= 0 || isNaN(numId)) {
+      throw new Error(`[devicesApi] Cannot delete device with invalid ID: ${id}`);
+    }
+    await apiClient.delete(`/devices/${numId}`);
   },
 
-  async toggleMaintenance(id: number, payload: MaintenanceToggleRequest): Promise<Device> {
-    const res = await apiClient.post<any>(`/devices/${id}/maintenance`, payload);
+  async toggleMaintenance(id: number | string, payload: MaintenanceToggleRequest): Promise<Device> {
+    const numId = Number(id);
+    if (!numId || numId <= 0 || isNaN(numId)) {
+      throw new Error(`[devicesApi] Cannot toggle maintenance with invalid ID: ${id}`);
+    }
+    const res = await apiClient.post<any>(`/devices/${numId}/maintenance`, payload);
     return normalizeDevice(res.data);
   }
 };

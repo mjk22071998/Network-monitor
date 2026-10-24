@@ -446,12 +446,12 @@ function filterByStatusFromHud(status: string) {
       <main class="flex-1 px-6 pb-6 pt-1 flex flex-col min-h-0 overflow-auto">
         <TopologyView 
           v-if="currentTab === 'TOPOLOGY'" 
-          @inspect="(id) => devicesStore.selectDevice(id)"
+          @inspect="(id) => id && id > 0 && devicesStore.selectDevice(id)"
         />
 
         <DeviceInventoryView 
           v-else-if="currentTab === 'INVENTORY'"
-          @inspect="(id) => devicesStore.selectDevice(id)"
+          @inspect="(id) => id && id > 0 && devicesStore.selectDevice(id)"
           @create="openCreateDeviceModal"
           @edit="(d) => openEditDeviceModal(d)"
           @delete="(d) => openDeleteDeviceModal(d)"

@@ -107,12 +107,16 @@ export const useDevicesStore = defineStore('devices', () => {
     }
   }
 
-  async function selectDevice(id: number) {
-    if (!id) return;
+  async function selectDevice(id: number | string) {
+    const numId = Number(id);
+    if (!numId || numId <= 0 || isNaN(numId)) {
+      console.warn(`[devicesStore] Suppressed selectDevice call for invalid ID: ${id}`);
+      return;
+    }
     isInspectorLoading.value = true;
     error.value = null;
     try {
-      const detail = await devicesApi.getById(id);
+      const detail = await devicesApi.getById(numId);
       selectedDevice.value = detail;
     } catch (err: any) {
       error.value = err.response?.data?.error || err.message || 'Failed to load device details';
@@ -139,14 +143,19 @@ export const useDevicesStore = defineStore('devices', () => {
     }
   }
 
-  async function updateDevice(id: number, payload: UpdateDeviceRequest) {
+  async function updateDevice(id: number | string, payload: UpdateDeviceRequest) {
+    const numId = Number(id);
+    if (!numId || numId <= 0 || isNaN(numId)) {
+      console.warn(`[devicesStore] Suppressed updateDevice call for invalid ID: ${id}`);
+      return;
+    }
     isLoading.value = true;
     error.value = null;
     try {
-      await devicesApi.update(id, payload);
+      await devicesApi.update(numId, payload);
       await fetchDevices();
-      if (selectedDevice.value?.device_id === id) {
-        await selectDevice(id);
+      if (selectedDevice.value?.device_id === numId) {
+        await selectDevice(numId);
       }
     } catch (err: any) {
       error.value = err.response?.data?.error || err.message || 'Failed to update device';
@@ -156,12 +165,17 @@ export const useDevicesStore = defineStore('devices', () => {
     }
   }
 
-  async function deleteDevice(id: number) {
+  async function deleteDevice(id: number | string) {
+    const numId = Number(id);
+    if (!numId || numId <= 0 || isNaN(numId)) {
+      console.warn(`[devicesStore] Suppressed deleteDevice call for invalid ID: ${id}`);
+      return;
+    }
     isLoading.value = true;
     error.value = null;
     try {
-      await devicesApi.delete(id);
-      if (selectedDevice.value?.device_id === id) {
+      await devicesApi.delete(numId);
+      if (selectedDevice.value?.device_id === numId) {
         clearSelectedDevice();
       }
       await fetchDevices();
@@ -173,12 +187,17 @@ export const useDevicesStore = defineStore('devices', () => {
     }
   }
 
-  async function toggleMaintenance(id: number, payload: MaintenanceToggleRequest) {
+  async function toggleMaintenance(id: number | string, payload: MaintenanceToggleRequest) {
+    const numId = Number(id);
+    if (!numId || numId <= 0 || isNaN(numId)) {
+      console.warn(`[devicesStore] Suppressed toggleMaintenance call for invalid ID: ${id}`);
+      return;
+    }
     try {
-      await devicesApi.toggleMaintenance(id, payload);
+      await devicesApi.toggleMaintenance(numId, payload);
       await fetchDevices();
-      if (selectedDevice.value?.device_id === id) {
-        await selectDevice(id);
+      if (selectedDevice.value?.device_id === numId) {
+        await selectDevice(numId);
       }
     } catch (err: any) {
       error.value = err.response?.data?.error || err.message || 'Failed to toggle maintenance mode';
