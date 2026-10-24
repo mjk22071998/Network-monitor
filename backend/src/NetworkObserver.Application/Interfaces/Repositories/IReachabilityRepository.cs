@@ -12,6 +12,7 @@ public interface IReachabilityRepository
     Task AddBatchAsync(IEnumerable<ReachabilitySample> samples, CancellationToken ct = default);
     Task<ReachabilitySample?> GetLatestByDeviceIdAsync(int deviceId, CancellationToken ct = default);
     Task<IReadOnlyDictionary<int, ReachabilitySample>> GetLatestForMonitoredDevicesAsync(CancellationToken ct = default);
+    Task<IReadOnlyDictionary<int, ReachabilitySample>> GetLatestForMonitoredDevicesAsync(IReadOnlyList<int> deviceIds, CancellationToken ct = default);
     Task<IReadOnlyList<ReachabilitySample>> GetHistoryAsync(int deviceId, DateTimeOffset start, DateTimeOffset end, CancellationToken ct = default);
     Task<TelemetrySummaryDto> GetSummaryAsync(int totalMonitoredCount, CancellationToken ct = default);
 }

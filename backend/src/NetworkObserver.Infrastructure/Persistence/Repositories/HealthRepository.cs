@@ -66,10 +66,20 @@ public class HealthRepository : IHealthRepository
         return sample;
     }
 
-    public async Task<IReadOnlyDictionary<int, HealthSample>> GetLatestForMonitoredDevicesAsync(CancellationToken ct = default)
+    public Task<IReadOnlyDictionary<int, HealthSample>> GetLatestForMonitoredDevicesAsync(CancellationToken ct = default)
+        => GetLatestForMonitoredDevicesAsync(null, ct);
+
+    public async Task<IReadOnlyDictionary<int, HealthSample>> GetLatestForMonitoredDevicesAsync(
+        IReadOnlyList<int>? deviceIds,
+        CancellationToken ct = default)
     {
-        var latestSamples = await _dbContext.HealthSamples
-            .AsNoTracking()
+        var query = _dbContext.HealthSamples.AsNoTracking();
+        if (deviceIds != null && deviceIds.Count > 0)
+        {
+            query = query.Where(hs => deviceIds.Contains(hs.DeviceId));
+        }
+
+        var latestSamples = await query
             .GroupBy(hs => hs.DeviceId)
             .Select(g => g.OrderByDescending(x => x.RecordedAt).First())
             .ToListAsync(ct);

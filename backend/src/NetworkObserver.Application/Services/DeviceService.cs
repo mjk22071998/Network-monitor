@@ -24,17 +24,29 @@ public class DeviceService : IDeviceService
     private readonly IDeviceRepository _deviceRepository;
     private readonly IGroupRepository _groupRepository;
     private readonly IReachabilityRepository _reachabilityRepository;
+    private readonly IHealthRepository _healthRepository;
     private readonly IAuditLogRepository _auditLogRepository;
 
     public DeviceService(
         IDeviceRepository deviceRepository,
         IGroupRepository groupRepository,
+        IReachabilityRepository? reachabilityRepository,
+        IAuditLogRepository? auditLogRepository)
+        : this(deviceRepository, groupRepository, reachabilityRepository, null, auditLogRepository)
+    {
+    }
+
+    public DeviceService(
+        IDeviceRepository deviceRepository,
+        IGroupRepository groupRepository,
         IReachabilityRepository? reachabilityRepository = null,
+        IHealthRepository? healthRepository = null,
         IAuditLogRepository? auditLogRepository = null)
     {
         _deviceRepository = deviceRepository;
         _groupRepository = groupRepository;
         _reachabilityRepository = reachabilityRepository ?? new NullReachabilityRepository();
+        _healthRepository = healthRepository ?? new NullHealthRepository();
         _auditLogRepository = auditLogRepository ?? new NullAuditLogRepository();
     }
 
@@ -48,7 +60,11 @@ public class DeviceService : IDeviceService
         var safeLimit = Math.Clamp(parameters.Limit, 1, 500);
         var totalPages = totalCount == 0 ? 0 : (int)Math.Ceiling((double)totalCount / safeLimit);
 
-        var dtos = devices.Select(MapToListItemDto).ToList();
+        var deviceIds = devices.Select(d => d.DeviceId).ToList();
+        var reachabilityMap = await _reachabilityRepository.GetLatestForMonitoredDevicesAsync(deviceIds, ct);
+        var healthMap = await _healthRepository.GetLatestForMonitoredDevicesAsync(deviceIds, ct);
+
+        var dtos = devices.Select(d => MapToListItemDto(d, reachabilityMap, healthMap)).ToList();
 
         var pagination = new PaginationMetadata(
             TotalRecords: totalCount,
@@ -70,7 +86,10 @@ public class DeviceService : IDeviceService
             throw new DeviceNotFoundException(deviceId);
         }
 
-        return MapToDetailDto(device);
+        var latestReachability = await _reachabilityRepository.GetLatestByDeviceIdAsync(deviceId, ct);
+        var latestHealth = await _healthRepository.GetLatestByDeviceIdAsync(deviceId, ct);
+
+        return MapToDetailDto(device, latestReachability, latestHealth);
     }
 
     public async Task<DeviceDetailDto> GetDeviceByMacAsync(string macAddress, CancellationToken ct = default)
@@ -82,7 +101,10 @@ public class DeviceService : IDeviceService
             throw new DeviceNotFoundException(macAddress);
         }
 
-        return MapToDetailDto(device);
+        var latestReachability = await _reachabilityRepository.GetLatestByDeviceIdAsync(device.DeviceId, ct);
+        var latestHealth = await _healthRepository.GetLatestByDeviceIdAsync(device.DeviceId, ct);
+
+        return MapToDetailDto(device, latestReachability, latestHealth);
     }
 
     public async Task<CreatedDeviceResponse> CreateDeviceAsync(
@@ -433,45 +455,126 @@ public class DeviceService : IDeviceService
         }
     }
 
-    private static DeviceListItemDto MapToListItemDto(Device d) => new(
-        DeviceId: d.DeviceId,
-        MacAddress: d.MacAddress,
-        PrimaryIp: d.PrimaryIp,
-        DisplayName: d.DisplayName,
-        TypeId: d.TypeId,
-        TypeCode: GetDeviceTypeCode(d.TypeId),
-        GroupId: d.GroupId,
-        GroupName: d.Group?.GroupName ?? "Unassigned Group",
-        ParentDeviceId: d.ParentDeviceId,
-        ParentDeviceName: d.ParentDevice?.DisplayName,
-        Vendor: d.Vendor,
-        Model: d.Model,
-        Zone: d.Zone,
-        IsMonitored: d.IsMonitored,
-        LatestReachability: null,
-        LatestHealth: null
-    );
+    private static DeviceListItemDto MapToListItemDto(
+        Device d,
+        IReadOnlyDictionary<int, ReachabilitySample> reachabilityMap,
+        IReadOnlyDictionary<int, HealthSample> healthMap)
+    {
+        LatestReachabilityDto? reachabilityDto = null;
+        if (reachabilityMap.TryGetValue(d.DeviceId, out var reachability))
+        {
+            reachabilityDto = new LatestReachabilityDto(
+                StatusId: reachability.StatusId,
+                StatusCode: GetReachabilityStatusCode(reachability.StatusId),
+                LatencyUs: reachability.LatencyUs,
+                LossPercentage: (decimal)reachability.LossPercentage,
+                NtpOffsetUs: reachability.NtpOffsetUs,
+                IsSuppressed: reachability.IsSuppressed,
+                RecordedAt: reachability.RecordedAt
+            );
+        }
 
-    private static DeviceDetailDto MapToDetailDto(Device d) => new(
-        DeviceId: d.DeviceId,
-        MacAddress: d.MacAddress,
-        PrimaryIp: d.PrimaryIp,
-        DisplayName: d.DisplayName,
-        TypeId: d.TypeId,
-        TypeCode: GetDeviceTypeCode(d.TypeId),
-        GroupId: d.GroupId,
-        GroupName: d.Group?.GroupName ?? "Unassigned Group",
-        ParentDeviceId: d.ParentDeviceId,
-        ParentDeviceName: d.ParentDevice?.DisplayName,
-        Vendor: d.Vendor,
-        Model: d.Model,
-        Zone: d.Zone,
-        IsMonitored: d.IsMonitored,
-        CreatedAt: d.CreatedAt,
-        UpdatedAt: d.UpdatedAt,
-        LatestReachability: null,
-        LatestHealth: null
-    );
+        LatestHealthDto? healthDto = null;
+        if (healthMap.TryGetValue(d.DeviceId, out var health))
+        {
+            healthDto = new LatestHealthDto(
+                StatusId: health.StatusId,
+                StatusCode: GetHealthStatusCode(health.StatusId),
+                CpuUtilizationPct: health.CpuUtilizationPct.HasValue ? (decimal)health.CpuUtilizationPct.Value : null,
+                RamUtilizationPct: health.RamUtilizationPct.HasValue ? (decimal)health.RamUtilizationPct.Value : null,
+                RecordedAt: health.RecordedAt
+            );
+        }
+
+        return new DeviceListItemDto(
+            DeviceId: d.DeviceId,
+            MacAddress: d.MacAddress,
+            PrimaryIp: d.PrimaryIp,
+            DisplayName: d.DisplayName,
+            TypeId: d.TypeId,
+            TypeCode: GetDeviceTypeCode(d.TypeId),
+            GroupId: d.GroupId,
+            GroupName: d.Group?.GroupName ?? "Unassigned Group",
+            ParentDeviceId: d.ParentDeviceId,
+            ParentDeviceName: d.ParentDevice?.DisplayName,
+            Vendor: d.Vendor,
+            Model: d.Model,
+            Zone: d.Zone,
+            IsMonitored: d.IsMonitored,
+            LatestReachability: reachabilityDto,
+            LatestHealth: healthDto
+        );
+    }
+
+    private static DeviceDetailDto MapToDetailDto(
+        Device d,
+        ReachabilitySample? reachability,
+        HealthSample? health)
+    {
+        LatestReachabilityDto? reachabilityDto = null;
+        if (reachability != null)
+        {
+            reachabilityDto = new LatestReachabilityDto(
+                StatusId: reachability.StatusId,
+                StatusCode: GetReachabilityStatusCode(reachability.StatusId),
+                LatencyUs: reachability.LatencyUs,
+                LossPercentage: (decimal)reachability.LossPercentage,
+                NtpOffsetUs: reachability.NtpOffsetUs,
+                IsSuppressed: reachability.IsSuppressed,
+                RecordedAt: reachability.RecordedAt
+            );
+        }
+
+        LatestHealthDto? healthDto = null;
+        if (health != null)
+        {
+            healthDto = new LatestHealthDto(
+                StatusId: health.StatusId,
+                StatusCode: GetHealthStatusCode(health.StatusId),
+                CpuUtilizationPct: health.CpuUtilizationPct.HasValue ? (decimal)health.CpuUtilizationPct.Value : null,
+                RamUtilizationPct: health.RamUtilizationPct.HasValue ? (decimal)health.RamUtilizationPct.Value : null,
+                RecordedAt: health.RecordedAt
+            );
+        }
+
+        return new DeviceDetailDto(
+            DeviceId: d.DeviceId,
+            MacAddress: d.MacAddress,
+            PrimaryIp: d.PrimaryIp,
+            DisplayName: d.DisplayName,
+            TypeId: d.TypeId,
+            TypeCode: GetDeviceTypeCode(d.TypeId),
+            GroupId: d.GroupId,
+            GroupName: d.Group?.GroupName ?? "Unassigned Group",
+            ParentDeviceId: d.ParentDeviceId,
+            ParentDeviceName: d.ParentDevice?.DisplayName,
+            Vendor: d.Vendor,
+            Model: d.Model,
+            Zone: d.Zone,
+            IsMonitored: d.IsMonitored,
+            CreatedAt: d.CreatedAt,
+            UpdatedAt: d.UpdatedAt,
+            LatestReachability: reachabilityDto,
+            LatestHealth: healthDto
+        );
+    }
+
+    private static string GetReachabilityStatusCode(short statusId) => statusId switch
+    {
+        1 => "REACHABLE",
+        2 => "UNREACHABLE",
+        3 => "SUPPRESSED",
+        _ => "UNKNOWN"
+    };
+
+    private static string GetHealthStatusCode(short statusId) => statusId switch
+    {
+        1 => "AVAILABLE",
+        2 => "UNAVAILABLE",
+        3 => "STALE",
+        4 => "UNSUPPORTED",
+        _ => "ERROR"
+    };
 
     private static string GetDeviceTypeCode(short typeId) => (DeviceTypeEnum)typeId switch
     {
@@ -489,8 +592,19 @@ internal class NullReachabilityRepository : IReachabilityRepository
     public Task AddBatchAsync(IEnumerable<ReachabilitySample> samples, CancellationToken ct = default) => Task.CompletedTask;
     public Task<ReachabilitySample?> GetLatestByDeviceIdAsync(int deviceId, CancellationToken ct = default) => Task.FromResult<ReachabilitySample?>(null);
     public Task<IReadOnlyDictionary<int, ReachabilitySample>> GetLatestForMonitoredDevicesAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyDictionary<int, ReachabilitySample>>(new Dictionary<int, ReachabilitySample>());
+    public Task<IReadOnlyDictionary<int, ReachabilitySample>> GetLatestForMonitoredDevicesAsync(IReadOnlyList<int> deviceIds, CancellationToken ct = default) => Task.FromResult<IReadOnlyDictionary<int, ReachabilitySample>>(new Dictionary<int, ReachabilitySample>());
     public Task<IReadOnlyList<ReachabilitySample>> GetHistoryAsync(int deviceId, DateTimeOffset start, DateTimeOffset end, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<ReachabilitySample>>(Array.Empty<ReachabilitySample>());
     public Task<TelemetrySummaryDto> GetSummaryAsync(int totalMonitoredCount, CancellationToken ct = default) => Task.FromResult(new TelemetrySummaryDto(DateTimeOffset.UtcNow, new ReachabilitySummaryDto(0,0,0,0,0), new HostHealthSummaryDto(0,0,0,0)));
+}
+
+internal class NullHealthRepository : IHealthRepository
+{
+    public Task AddBatchAsync(IEnumerable<HealthSample> samples, CancellationToken ct = default) => Task.CompletedTask;
+    public Task<HealthSample?> GetLatestByDeviceIdAsync(int deviceId, CancellationToken ct = default) => Task.FromResult<HealthSample?>(null);
+    public Task<IReadOnlyDictionary<int, HealthSample>> GetLatestForMonitoredDevicesAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyDictionary<int, HealthSample>>(new Dictionary<int, HealthSample>());
+    public Task<IReadOnlyDictionary<int, HealthSample>> GetLatestForMonitoredDevicesAsync(IReadOnlyList<int> deviceIds, CancellationToken ct = default) => Task.FromResult<IReadOnlyDictionary<int, HealthSample>>(new Dictionary<int, HealthSample>());
+    public Task<IReadOnlyList<HealthSample>> GetHistoryAsync(int deviceId, DateTimeOffset start, DateTimeOffset end, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<HealthSample>>(Array.Empty<HealthSample>());
+    public Task<HostHealthSummaryDto> GetSummaryAsync(CancellationToken ct = default) => Task.FromResult(new HostHealthSummaryDto(0, 0, 0, 0));
 }
 
 internal class NullAuditLogRepository : IAuditLogRepository

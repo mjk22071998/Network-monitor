@@ -28,6 +28,23 @@ export interface Device {
   latest_cpu_pct?: number | null;
   latest_ram_pct?: number | null;
   latest_temp_c?: number | null;
+
+  latest_reachability?: {
+    status_id: number;
+    status_code: string;
+    latency_us: number | null;
+    loss_percentage: number;
+    ntp_offset_us: number | null;
+    is_suppressed: boolean;
+    recorded_at: string;
+  } | null;
+  latest_health?: {
+    status_id: number;
+    status_code: string;
+    cpu_utilization_pct: number | null;
+    ram_utilization_pct: number | null;
+    recorded_at: string;
+  } | null;
 }
 
 export interface DiskVolume {

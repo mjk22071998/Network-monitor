@@ -239,6 +239,81 @@ public class DeviceMaintenanceTests
         Assert.NotNull(device);
         Assert.True(device.IsMonitored);
     }
+
+    [Fact]
+    public async Task GetDevicesAsync_WhenDeviceUnreachable_PopulatesLatestReachabilityWithUnreachableStatus()
+    {
+        // Arrange
+        _deviceRepo.AddDevice(new Device
+        {
+            DeviceId = 101,
+            DisplayName = "Test-Switch-01",
+            PrimaryIp = "192.168.1.50",
+            MacAddress = "00:1A:2B:50:50:50",
+            TypeId = (short)DeviceTypeEnum.AccessSwitch,
+            GroupId = 1,
+            IsMonitored = true
+        });
+
+        _reachabilityRepo.SetLatestSample(101, new ReachabilitySample
+        {
+            DeviceId = 101,
+            StatusId = 2, // UNREACHABLE
+            LatencyUs = null,
+            LossPercentage = 100f,
+            IsSuppressed = false,
+            RecordedAt = DateTimeOffset.UtcNow
+        });
+
+        // Act
+        var result = await _deviceService.GetDevicesAsync(new DeviceQueryParameters());
+
+        // Assert
+        Assert.NotNull(result);
+        var item = Assert.Single(result.Data, d => d.DeviceId == 101);
+        Assert.NotNull(item.LatestReachability);
+        Assert.Equal("UNREACHABLE", item.LatestReachability.StatusCode);
+        Assert.Equal(2, item.LatestReachability.StatusId);
+        Assert.Null(item.LatestReachability.LatencyUs);
+        Assert.Equal(100m, item.LatestReachability.LossPercentage);
+    }
+
+    [Fact]
+    public async Task GetDevicesAsync_WhenDeviceReachable_PopulatesLatestReachabilityWithLatency()
+    {
+        // Arrange
+        _deviceRepo.AddDevice(new Device
+        {
+            DeviceId = 102,
+            DisplayName = "Test-Router-01",
+            PrimaryIp = "192.168.1.1",
+            MacAddress = "00:1A:2B:01:01:01",
+            TypeId = (short)DeviceTypeEnum.CoreRouter,
+            GroupId = 1,
+            IsMonitored = true
+        });
+
+        _reachabilityRepo.SetLatestSample(102, new ReachabilitySample
+        {
+            DeviceId = 102,
+            StatusId = 1, // REACHABLE
+            LatencyUs = 1250,
+            LossPercentage = 0f,
+            IsSuppressed = false,
+            RecordedAt = DateTimeOffset.UtcNow
+        });
+
+        // Act
+        var result = await _deviceService.GetDevicesAsync(new DeviceQueryParameters());
+
+        // Assert
+        Assert.NotNull(result);
+        var item = Assert.Single(result.Data, d => d.DeviceId == 102);
+        Assert.NotNull(item.LatestReachability);
+        Assert.Equal("REACHABLE", item.LatestReachability.StatusCode);
+        Assert.Equal(1, item.LatestReachability.StatusId);
+        Assert.Equal(1250, item.LatestReachability.LatencyUs);
+    }
 }
 
 internal class StubAuditLogRepository : IAuditLogRepository

@@ -34,11 +34,21 @@ public class ReachabilityRepository : IReachabilityRepository
             .FirstOrDefaultAsync(ct);
     }
 
-    public async Task<IReadOnlyDictionary<int, ReachabilitySample>> GetLatestForMonitoredDevicesAsync(CancellationToken ct = default)
+    public Task<IReadOnlyDictionary<int, ReachabilitySample>> GetLatestForMonitoredDevicesAsync(CancellationToken ct = default)
+        => GetLatestForMonitoredDevicesAsync(null, ct);
+
+    public async Task<IReadOnlyDictionary<int, ReachabilitySample>> GetLatestForMonitoredDevicesAsync(
+        IReadOnlyList<int>? deviceIds,
+        CancellationToken ct = default)
     {
         // Get the latest sample for each device using an efficient grouping query
-        var latestSamples = await _dbContext.ReachabilitySamples
-            .AsNoTracking()
+        var query = _dbContext.ReachabilitySamples.AsNoTracking();
+        if (deviceIds != null && deviceIds.Count > 0)
+        {
+            query = query.Where(s => deviceIds.Contains(s.DeviceId));
+        }
+
+        var latestSamples = await query
             .GroupBy(s => s.DeviceId)
             .Select(g => g.OrderByDescending(x => x.RecordedAt).First())
             .ToDictionaryAsync(s => s.DeviceId, ct);

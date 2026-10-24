@@ -12,6 +12,7 @@ public interface IHealthRepository
     Task AddBatchAsync(IEnumerable<HealthSample> samples, CancellationToken ct = default);
     Task<HealthSample?> GetLatestByDeviceIdAsync(int deviceId, CancellationToken ct = default);
     Task<IReadOnlyDictionary<int, HealthSample>> GetLatestForMonitoredDevicesAsync(CancellationToken ct = default);
+    Task<IReadOnlyDictionary<int, HealthSample>> GetLatestForMonitoredDevicesAsync(IReadOnlyList<int> deviceIds, CancellationToken ct = default);
     Task<IReadOnlyList<HealthSample>> GetHistoryAsync(int deviceId, DateTimeOffset start, DateTimeOffset end, CancellationToken ct = default);
     Task<HostHealthSummaryDto> GetSummaryAsync(CancellationToken ct = default);
 }

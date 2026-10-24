@@ -551,9 +551,10 @@ internal class StubReachabilityRepository : IReachabilityRepository
     }
 
     public Task<IReadOnlyDictionary<int, ReachabilitySample>> GetLatestForMonitoredDevicesAsync(CancellationToken ct = default)
-    {
-        return Task.FromResult<IReadOnlyDictionary<int, ReachabilitySample>>(_latest);
-    }
+        => Task.FromResult<IReadOnlyDictionary<int, ReachabilitySample>>(_latest);
+
+    public Task<IReadOnlyDictionary<int, ReachabilitySample>> GetLatestForMonitoredDevicesAsync(IReadOnlyList<int> deviceIds, CancellationToken ct = default)
+        => Task.FromResult<IReadOnlyDictionary<int, ReachabilitySample>>(_latest);
 
     public Task<IReadOnlyList<ReachabilitySample>> GetHistoryAsync(int deviceId, DateTimeOffset start, DateTimeOffset end, CancellationToken ct = default)
     {
@@ -669,9 +670,10 @@ internal class StubHealthRepository : IHealthRepository
     }
 
     public Task<IReadOnlyDictionary<int, HealthSample>> GetLatestForMonitoredDevicesAsync(CancellationToken ct = default)
-    {
-        return Task.FromResult<IReadOnlyDictionary<int, HealthSample>>(_latest);
-    }
+        => Task.FromResult<IReadOnlyDictionary<int, HealthSample>>(_latest);
+
+    public Task<IReadOnlyDictionary<int, HealthSample>> GetLatestForMonitoredDevicesAsync(IReadOnlyList<int> deviceIds, CancellationToken ct = default)
+        => Task.FromResult<IReadOnlyDictionary<int, HealthSample>>(_latest);
 
     public Task<IReadOnlyList<HealthSample>> GetHistoryAsync(int deviceId, DateTimeOffset start, DateTimeOffset end, CancellationToken ct = default)
     {
